@@ -1,23 +1,23 @@
 #include "task.h"
 
-#include "arch.h"
+#include "task_low.h"
 #include "task_structs.h"
 
 static struct task_info task_infos[TASK_LIMIT_SPAWNED];
 static struct task_info *task_info_list_head_free;
 
-static struct task_info *current;
-static struct task_info *main_task;
+static struct task_info *task_current;
+static struct task_info *task_main;
 
 static struct scheduler *scheduler = NULL;
 
 static struct task_opt default_task_opt = {
 	.priority	= TASK_DEFAULT_PRIORITY,
 	.stack_size	= TASK_DEFAULT_STACK_SIZE,
-	.stack		= NULL,
+	.user_stack	= NULL,
 };
 
-struct task_info *task_alloc_info(void)
+static struct task_info *task_alloc_info(void)
 {
 	struct task_info *task_info = task_info_list_head_free;
 
@@ -32,7 +32,13 @@ struct task_info *task_alloc_info(void)
 	return task_info;
 }
 
-void task_free_info(struct task_info *task_info)
+void task_yield(void)
+{
+	/* Just trigger PendSV */
+	task_low_pendsv_trigger();
+}
+
+static void task_free_info(struct task_info *task_info)
 {
 	assert(task_info->state == TASK_STATE_TERMINATED);
 
@@ -64,21 +70,23 @@ void task_init(struct scheduler *_scheduler)
 	if (scheduler->init != NULL)
 		scheduler->init();
 
-	main_task = task_alloc_info();
+	task_main = task_alloc_info();
 
-	main_task->task = NULL;
-	main_task->arg = NULL;
+	task_main->task = NULL;
+	task_main->arg = NULL;
 
-	main_task->opt.priority = TASK_DEFAULT_PRIORITY;
-	main_task->opt.stack_size = 0;
-	main_task->opt.stack = NULL;
+	task_main->opt.priority = TASK_DEFAULT_PRIORITY;
+	task_main->opt.stack_size = 0;
+	task_main->opt.user_stack = NULL;
 
-	main_task->state = TASK_STATE_RUNNING;
+	task_main->state = TASK_STATE_RUNNING;
+
+	task_current = task_main;
 }
 
 void task_spawn_opt(task_t task, void *arg, struct task_opt *opt)
 {
-	task_low_systick_disable();
+	task_low_systick_irq_disable();
 
 	struct task_info *task_info = task_alloc_info();
 
@@ -86,17 +94,22 @@ void task_spawn_opt(task_t task, void *arg, struct task_opt *opt)
 	task_info->arg = arg;
 	task_info->opt = *opt;
 
-	if (task_info->opt.stack == NULL) {
+	if (task_info->opt.user_stack == NULL) {
 		/* User did not provide a stack */
-		task_info->opt.stack = malloc(task_info->opt.stack_size);
-		assert(task_info->opt.stack != NULL);
+		task_info->stack = malloc(task_info->opt.stack_size);
+	} else {
+		task_info->stack = task_info->opt.user_stack;
 	}
+
+	assert(task_info->stack != NULL);
+
+	task_low_setup_stack(task_info);
 
 	assert(scheduler != NULL);
 
 	scheduler->enqueue(task_info);
 
-	task_low_systick_enable();
+	task_low_systick_irq_enable();
 }
 
 void task_spawn(task_t task, void *arg)
@@ -104,42 +117,59 @@ void task_spawn(task_t task, void *arg)
 	task_spawn_opt(task, arg, &default_task_opt);
 }
 
-void task_yield(void)
-{
-	assert(false); // TODO PendSV
-}
-
 void task_switch(void)
 {
-	assert(current->state == TASK_STATE_RUNNING);
-
-	current->state = TASK_STATE_SPAWNED;
-
-	if (current != main_task)
-		current->stack_top = task_low_get_psp();
-
 	assert(scheduler != NULL);
+	assert(task_current != NULL);
+
+	switch (task_current->state) {
+	case TASK_STATE_RUNNING:
+		task_current->state = TASK_STATE_SPAWNED;
+		if (task_current == task_main) {
+			task_current->stack_top = task_low_get_msp();
+		} else {
+			task_current->stack_top = task_low_get_psp();
+		}
+		scheduler->enqueue(task_current);
+		break;
+	case TASK_STATE_TERMINATED:
+		if (task_current->opt.user_stack == NULL)
+			free(task_current->stack);
+		task_free_info(task_current);
+		task_current = NULL;
+		break;
+	default:
+		assert(false);
+	}
 
 	/* Choose new task */
-	current = scheduler->dequeue();
+	task_current = scheduler->dequeue();
 
-	assert(current != NULL);
-	assert(current->state == TASK_STATE_SPAWNED);
+	assert(task_current != NULL);
+	assert(task_current->state == TASK_STATE_SPAWNED);
 
-	current->state = TASK_STATE_RUNNING;
+	task_current->state = TASK_STATE_RUNNING;
 
-	if (current == main_task) {
-		task_low_set_exc_return(EXC_RETURN_PSP);
-		task_low_set_psp(current->stack_top);
-	} else {
+	if (task_current == task_main) {
 		task_low_set_exc_return(EXC_RETURN_MSP);
+		task_low_set_msp(task_current->stack_top);
+		task_low_set_psp(NULL);
+	} else {
+		task_low_set_exc_return(EXC_RETURN_PSP);
+		task_low_set_psp(task_current->stack_top);
 	}
 }
 
-void task_run(struct task_info *task_info)
+void task_run(void)
 {
-	assert(task_info != NULL);
-	assert(task_info->state == TASK_STATE_SLEEPING);
+	assert(task_current != NULL);
 
-	task_info->state = TASK_STATE_RUNNING;
+	/* Execute task */
+	task_current->task(task_current->arg);
+
+	task_current->state = TASK_STATE_TERMINATED;
+
+	task_yield();
+
+	for (;;); /* RIP - task shall be removed in 'task_switch' */
 }

@@ -19,7 +19,10 @@ struct task_info {
 	void *arg;
 	struct task_opt opt;
 
-	uint32_t *stack_top;
+	uint32_t *stack;	/* This is stack limiting address.
+				   As supplied by user or allocated. */
+	uint32_t *stack_top;	/* Last known top of the stack
+				   (valid for non-running tasks). */
 
 	struct task_info *list_next;
 };
