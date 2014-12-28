@@ -6,7 +6,7 @@
  * - priority is currently ignored (TODO)
  */
 
-#include "sched.h"
+#include "sched/fifo.h"
 
 #include "task_structs.h"
 
