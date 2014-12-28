@@ -4,7 +4,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-/* These routines are architecture specific and need to be implemented separately */
+/* These structures and routines are architecture
+ * specific and need to be implemented separately */
 
 extern void assert(bool cond);
 
