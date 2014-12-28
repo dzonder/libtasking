@@ -22,22 +22,28 @@ struct task_descs {
 };
 
 static struct task_descs task_descs;
-static struct task_info task_infos[TASK_MAX_TASKS];
+static struct task_info task_infos[TASK_LIMIT_SPAWNED];
 
 static struct scheduler *scheduler = NULL;
+
+static struct task_opt default_task_opt = {
+	.priority	= TASK_DEFAULT_PRIORITY,
+	.stack_size	= TASK_DEFAULT_STACK_SIZE,
+	.stack_user	= NULL,
+};
 
 void task_init(struct scheduler *_scheduler)
 {
 	scheduler = _scheduler;
 
 	/* Initialize task_info pool as 'unused' list */
-	for (uint16_t i = 0U; i < TASK_MAX_TASKS; ++i) {
+	for (uint16_t i = 0U; i < TASK_LIMIT_SPAWNED; ++i) {
 		struct task_info *task_info = task_infos + i;
 
 		task_info->state = TASK_STATE_UNUSED;
 		task_info->list_next = task_info + 1;
 	}
-	task_infos[TASK_MAX_TASKS - 1].list_next = NULL;
+	task_infos[TASK_LIMIT_SPAWNED - 1].list_next = NULL;
 
 	task_descs.list_head_unused = task_infos;
 
@@ -46,7 +52,7 @@ void task_init(struct scheduler *_scheduler)
 	task_descs.list_tail_spawn = NULL;
 }
 
-void task_spawn(task_t task, void *arg, int8_t priority)
+void task_spawn_opt(task_t task, void *arg, struct task_opt *task_opt)
 {
 	struct task_info *task_info = task_descs.list_head_unused;
 
@@ -59,7 +65,7 @@ void task_spawn(task_t task, void *arg, int8_t priority)
 
 	task_info->run_info.task = task;
 	task_info->run_info.arg = arg;
-	task_info->run_info.priority = priority;
+	task_info->run_info.priority = task_opt->priority;
 
 	/* Append to the end of the 'spawn' list */
 	task_info->list_next = NULL;
@@ -69,6 +75,11 @@ void task_spawn(task_t task, void *arg, int8_t priority)
 		task_descs.list_head_spawn = task_info;
 	}
 	task_descs.list_tail_spawn = task_info;
+}
+
+void task_spawn(task_t task, void *arg)
+{
+	task_spawn_opt(task, arg, &default_task_opt);
 }
 
 bool task_next(struct task_run_info *run_info)

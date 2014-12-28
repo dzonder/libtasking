@@ -4,10 +4,16 @@
 #include <stdint.h>
 #include "sched_structs.h"
 
-#define TASK_MAX_TASKS		16
-
 enum {
-	TASK_PRIORITY_NORMAL = 10,
+	TASK_LIMIT_SPAWNED		= 16,
+	TASK_DEFAULT_PRIORITY		= 10,
+	TASK_DEFAULT_STACK_SIZE		= 1024,
+};
+
+struct task_opt {
+	uint8_t priority;
+	uint32_t stack_size;
+	uint32_t *stack_user;
 };
 
 typedef void (*task_t)(void *arg);
@@ -16,7 +22,8 @@ typedef void (*task_t)(void *arg);
 void task_init(struct scheduler *scheduler);
 
 /* Adds a task to the scheduler queue */
-void task_spawn(task_t task, void *arg, int8_t priority);
+void task_spawn(task_t task, void *arg);
+void task_spawn_opt(task_t task, void *arg, struct task_opt *task_opt);
 
 /* Running task can use yield to relinquish MCU */
 void task_yield(void);
