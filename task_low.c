@@ -20,7 +20,7 @@ struct stack_frame {
 	struct hw_stack_frame hw;
 };
 
-static uint32_t *task_low_msp;
+static uint32_t *task_low_exc_return;
 
 // TODO floating point registers?
 
@@ -44,9 +44,10 @@ static inline void task_low_context_restore(void)
 
 void PendSV_Handler()
 {
-	/* We need to save MSP in order to set correct exception
-	   return behaviour. See 'task_low_set_exc_return'. */
-	task_low_msp = task_low_get_msp();
+	/* We need to save address of return value on the MSP stack
+	   in order to set correct exception return behaviour.
+	   See 'task_low_set_exc_return'. */
+	task_low_exc_return = task_low_get_msp() + 1;
 
 	/* No need to save/restore context for MSP.
 	   Master stack is left intact by software */
@@ -69,7 +70,7 @@ void task_low_set_exc_return(uint32_t exc_return)
 	/* Modify LR stack saved value in order to set the
 	   correct stack pointer and mode during exception
 	   return. */
-	*(task_low_msp + 1) = exc_return;
+	*task_low_exc_return = exc_return;
 }
 
 void task_low_systick_irq_enable(void)
