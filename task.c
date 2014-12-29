@@ -3,7 +3,7 @@
 #include "task_low.h"
 #include "task_structs.h"
 
-static struct task_info task_infos[TASK_LIMIT_SPAWNED];
+static struct task_info task_infos[TASK_MAX_TASKS];
 static struct task_info *task_info_list_head_free;
 
 static struct task_info *task_current;
@@ -57,13 +57,13 @@ void task_init(struct scheduler *_scheduler)
 	assert(scheduler->enqueue != NULL);
 
 	/* Initialize task_info pool as 'unused' list */
-	for (uint16_t i = 0U; i < TASK_LIMIT_SPAWNED; ++i) {
+	for (uint16_t i = 0U; i < TASK_MAX_TASKS; ++i) {
 		struct task_info *task_info = task_infos + i;
 
 		task_info->state = TASK_STATE_UNUSED;
 		task_info->list_next = task_info + 1;
 	}
-	task_infos[TASK_LIMIT_SPAWNED - 1].list_next = NULL;
+	task_infos[TASK_MAX_TASKS - 1].list_next = NULL;
 
 	task_info_list_head_free = task_infos;
 

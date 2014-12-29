@@ -3,12 +3,7 @@
 
 #include "arch.h"
 #include "sched_structs.h"
-
-enum {
-	TASK_LIMIT_SPAWNED		= 16,
-	TASK_DEFAULT_PRIORITY		= 10,
-	TASK_DEFAULT_STACK_SIZE		= 1024,
-};
+#include "task_conf.h"
 
 struct task_opt {
 	uint8_t priority;
