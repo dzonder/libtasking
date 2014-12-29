@@ -123,23 +123,40 @@ void task_switch(void)
 	assert(task_current != NULL);
 
 	switch (task_current->state) {
+
 	case TASK_STATE_RUNNING:
 		task_current->state = TASK_STATE_SPAWNED;
+
+		/* Save top of the stack */
 		if (task_current == task_main) {
 			task_current->stack_top = task_low_get_msp();
 		} else {
 			task_current->stack_top = task_low_get_psp();
+
+			/* Stack overflow checking */
+			assert(task_current->stack_top >= task_current->stack);
 		}
+
 		scheduler->enqueue(task_current);
+
 		break;
+
 	case TASK_STATE_TERMINATED:
+		/* Main task should never have a terminated state */
+		assert(task_current != task_main);
+
+		/* User did not supply stack - is was mallocd - lets free it */
 		if (task_current->opt.user_stack == NULL)
 			free(task_current->stack);
+
 		task_free_info(task_current);
 		task_current = NULL;
+
 		break;
+
 	default:
 		assert(false);
+
 	}
 
 	/* Choose new task */
@@ -163,6 +180,7 @@ void task_switch(void)
 void task_run(void)
 {
 	assert(task_current != NULL);
+	assert(task_current->state == TASK_STATE_RUNNING);
 
 	/* Execute task */
 	task_current->task(task_current->arg);

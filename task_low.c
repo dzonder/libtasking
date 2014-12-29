@@ -92,6 +92,9 @@ void task_low_setup_stack(struct task_info *task_info)
 	assert(task_info != NULL);
 	assert(task_info->state == TASK_STATE_SPAWNED);
 
+	/* We need room for at least two stack frames on the stack */
+	assert(task_info->opt.stack_size >= 2 * sizeof(struct stack_frame));
+
 	/* Stack starts here */
 	task_info->stack_top = (void *)task_info->stack + task_info->opt.stack_size;
 
@@ -117,4 +120,6 @@ void task_low_setup_stack(struct task_info *task_info)
 
 	/* Push frame onto the stack */
 	task_info->stack_top = (uint32_t *)frame;
+
+	assert(task_info->stack_top >= task_info->stack);
 }
