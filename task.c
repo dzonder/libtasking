@@ -32,12 +32,6 @@ static struct task_info *task_alloc_info(void)
 	return task_info;
 }
 
-void task_yield(void)
-{
-	/* Just trigger PendSV */
-	task_low_pendsv_trigger();
-}
-
 static void task_free_info(struct task_info *task_info)
 {
 	assert(task_info->state == TASK_STATE_TERMINATED);
@@ -115,6 +109,12 @@ void task_spawn_opt(task_t task, void *arg, struct task_opt *opt)
 void task_spawn(task_t task, void *arg)
 {
 	task_spawn_opt(task, arg, &default_task_opt);
+}
+
+void task_yield(void)
+{
+	/* Just trigger PendSV */
+	task_low_pendsv_trigger();
 }
 
 void task_switch(void)
