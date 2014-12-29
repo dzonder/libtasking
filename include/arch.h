@@ -5,10 +5,13 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-/* These structures and routines are architecture
- * specific and need to be implemented separately */
+/* The following functions should be set as interrupt handlers respectively:
+      1. SysTick_Handler()
+      2. PendSV_Handler()
+   in order for the scheduling to work. */
 
-#include "MK22F12.h"
+/* These structures and routines are architecture
+   specific and need to be implemented separately */
 
 extern void assert(bool cond);
 

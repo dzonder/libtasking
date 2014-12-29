@@ -80,7 +80,7 @@ void task_init(struct scheduler *_scheduler)
 
 void task_spawn_opt(task_t task, void *arg, struct task_opt *opt)
 {
-	task_low_systick_irq_disable();
+	task_low_preemption_disable();
 
 	struct task_info *task_info = task_alloc_info();
 
@@ -97,13 +97,13 @@ void task_spawn_opt(task_t task, void *arg, struct task_opt *opt)
 
 	assert(task_info->stack != NULL);
 
-	task_low_setup_stack(task_info);
+	task_low_stack_setup(task_info);
 
 	assert(scheduler != NULL);
 
 	scheduler->enqueue(task_info);
 
-	task_low_systick_irq_enable();
+	task_low_preemption_enable();
 }
 
 void task_spawn(task_t task, void *arg)
@@ -113,8 +113,7 @@ void task_spawn(task_t task, void *arg)
 
 void task_yield(void)
 {
-	/* Just trigger PendSV */
-	task_low_pendsv_trigger();
+	task_low_yield();
 }
 
 void task_switch(void)
@@ -126,19 +125,8 @@ void task_switch(void)
 
 	case TASK_STATE_RUNNING:
 		task_current->state = TASK_STATE_SPAWNED;
-
-		/* Save top of the stack */
-		if (task_current == task_main) {
-			task_current->stack_top = task_low_get_msp();
-		} else {
-			task_current->stack_top = task_low_get_psp();
-
-			/* Stack overflow checking */
-			assert(task_current->stack_top >= task_current->stack);
-		}
-
+		task_low_stack_save(task_current);
 		scheduler->enqueue(task_current);
-
 		break;
 
 	case TASK_STATE_TERMINATED:
@@ -151,7 +139,6 @@ void task_switch(void)
 
 		task_free_info(task_current);
 		task_current = NULL;
-
 		break;
 
 	default:
@@ -167,14 +154,7 @@ void task_switch(void)
 
 	task_current->state = TASK_STATE_RUNNING;
 
-	if (task_current == task_main) {
-		task_low_set_exc_return(EXC_RETURN_MSP);
-		task_low_set_msp(task_current->stack_top);
-		task_low_set_psp(NULL);
-	} else {
-		task_low_set_exc_return(EXC_RETURN_PSP);
-		task_low_set_psp(task_current->stack_top);
-	}
+	task_low_stack_restore(task_current);
 }
 
 void task_run(void)

@@ -3,6 +3,9 @@
 
 #include "task.h"
 
+extern void task_switch(void);
+extern void task_run(void);
+
 enum task_state {
 	TASK_STATE_UNUSED,
 	TASK_STATE_SPAWNED,

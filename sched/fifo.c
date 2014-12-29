@@ -10,8 +10,8 @@
 
 #include "task_structs.h"
 
-struct task_info *list_head_queued_tasks;
-struct task_info *list_tail_queued_tasks;
+static struct task_info *list_head_queued_tasks;
+static struct task_info *list_tail_queued_tasks;
 
 static void fifo_init(void)
 {
