@@ -153,7 +153,9 @@ void task_switch(void)
 	/* Choose new task */
 	task_current = scheduler->dequeue();
 
+	// TODO: this could be NULL if all tasks are sleeping (enter low-power mode).
 	assert(task_current != NULL);
+
 	assert(task_current->state == TASK_STATE_SPAWNED);
 
 	task_current->state = TASK_STATE_RUNNING;

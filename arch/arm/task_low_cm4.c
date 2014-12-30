@@ -45,38 +45,12 @@ struct stack_frame {
 struct sw_stack_frame task_main_sw_stack_frame;
 
 __attribute__ ((always_inline))
-static inline void task_low_context_save(void)
-{
-	uint32_t *stack;
-	__asm volatile ("MRS %0, psp\n\t"
-			"STMDB %0!, {r4-r11}\n\t"
-			"MSR psp, %0\n\t" : "=r" (stack));
-}
-
-__attribute__ ((always_inline))
-static inline void task_low_context_restore(void)
-{
-	uint32_t *stack;
-	__asm volatile ("MRS %0, psp\n\t"
-			"LDMFD %0!, {r4-r11}\n\t"
-			"MSR psp, %0\n\t" : "=r" (stack));
-}
-
-static inline void task_low_get_msp(uint32_t **stack)
-{
-	__asm volatile ("MRS %0, msp\n\t" : "=r" (*stack));
-}
-
 static inline void task_low_get_psp(uint32_t **stack)
 {
 	__asm volatile ("MRS %0, psp\n\t" : "=r" (*stack));
 }
 
-static inline void task_low_set_msp(uint32_t *stack)
-{
-	__asm volatile ("MSR msp, %0\n\t" : : "r" (stack));
-}
-
+__attribute__ ((always_inline))
 static inline void task_low_set_psp(uint32_t *stack)
 {
 	__asm volatile ("MSR psp, %0\n\t" : : "r" (stack));
@@ -153,17 +127,22 @@ static void task_low_context_restore_fp(bool fp_used)
 #endif
 }
 
-static inline uint32_t * task_low_exc_return_addr(void)
+void task_low_exc_return_lr_addr_set(uint32_t *stack)
 {
-	return task_main->stack_top + 1;
+	task_main->stack_top = stack;
 }
 
-static uint8_t task_low_exc_return_fp_used(void)
+static inline uint32_t * task_low_exc_return_lr_addr_get(void)
 {
-	return (*task_low_exc_return_addr() & (1U << 4U)) == 0U;
+	return task_main->stack_top;
 }
 
-static void task_low_exc_return_set(uint32_t exc_return, uint8_t fp_used)
+static inline uint8_t task_low_exc_return_fp_used(void)
+{
+	return (*task_low_exc_return_lr_addr_get() & (1U << 4U)) == 0U;
+}
+
+static inline void task_low_exc_return_set(uint32_t exc_return, uint8_t fp_used)
 {
 	/* Set FP bit according to current value */
 	exc_return &= ~(fp_used << 4U);
@@ -171,7 +150,7 @@ static void task_low_exc_return_set(uint32_t exc_return, uint8_t fp_used)
 	/* Modify LR stack saved value in order to set the
 	   correct stack pointer and mode during exception
 	   return. */
-	*task_low_exc_return_addr() = exc_return;
+	*task_low_exc_return_lr_addr_get() = exc_return;
 }
 
 void task_low_init(void)
@@ -246,7 +225,6 @@ void task_low_stack_restore(struct task_info *task_info)
 
 	if (IS_MAIN_TASK(task_info)) {
 		task_low_exc_return_set(EXC_RETURN_MSP, task_info->fp_used);
-		task_low_set_msp(task_info->stack_top);
 
 		/* Here we use a trick to save SW preserved registers.
 		   We use PSP for this which holds a special allocated
@@ -254,26 +232,9 @@ void task_low_stack_restore(struct task_info *task_info)
 		task_low_set_psp((uint32_t *)(&task_main_sw_stack_frame + 1));
 	} else {
 		task_low_exc_return_set(EXC_RETURN_PSP, task_info->fp_used);
+
 		task_low_set_psp(task_info->stack_top);
 	}
 
 	task_low_context_restore_fp(task_info->fp_used);
-}
-
-void PendSV_Handler()
-{
-	/* We need to save address of return value on the MSP stack
-	   in order to set correct exception return behaviour.
-	   See 'task_low_set_exc_return'. */
-	task_low_get_msp(&task_main->stack_top);
-
-	task_low_context_save();
-
-	task_switch();
-
-	task_low_context_restore();
-}
-
-void SysTick_Handler() {
-	// TODO
 }
