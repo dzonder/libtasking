@@ -18,6 +18,8 @@
 #define EXC_RETURN_FP_MSP	(uint32_t)(0xFFFFFFE9)
 #define EXC_RETURN_FP_PSP	(uint32_t)(0xFFFFFFED)
 
+#define IS_MAIN_TASK(task)	((task) == task_main)
+
 struct sw_stack_frame {
 	uint32_t r4, r5, r6, r7, r8, r9, r10, r11;
 };
@@ -34,8 +36,6 @@ struct stack_frame {
 	struct sw_stack_frame sw;
 	struct hw_stack_frame hw;
 };
-
-static uint32_t *task_low_exc_return;
 
 // TODO floating point registers?
 
@@ -90,7 +90,7 @@ void task_low_set_exc_return(uint32_t exc_return)
 	/* Modify LR stack saved value in order to set the
 	   correct stack pointer and mode during exception
 	   return. */
-	*task_low_exc_return = exc_return;
+	*(task_main->stack_top + 1) = exc_return;
 }
 
 void task_low_preemption_enable(void)
@@ -121,7 +121,7 @@ void task_low_stack_setup(struct task_info *task_info)
 
 	struct stack_frame *frame = (struct stack_frame *)task_info->stack_top - 1;
 
-	frame->hw.r0 = 0U;
+	frame->hw.r0 = (uint32_t)task_info;
 	frame->hw.r1 = 0U;
 	frame->hw.r2 = 0U;
 	frame->hw.r3 = 0U;
@@ -147,11 +147,7 @@ void task_low_stack_setup(struct task_info *task_info)
 
 void task_low_stack_save(struct task_info *task_info)
 {
-	bool is_main_task = task_info->stack == NULL;
-
-	if (is_main_task) {
-		task_info->stack_top = task_low_get_msp();
-	} else {
+	if (!IS_MAIN_TASK(task_info)) {
 		task_info->stack_top = task_low_get_psp();
 
 		/* Stack overflow checking */
@@ -161,9 +157,7 @@ void task_low_stack_save(struct task_info *task_info)
 
 void task_low_stack_restore(struct task_info *task_info)
 {
-	bool is_main_task = task_info->stack == NULL;
-
-	if (is_main_task) {
+	if (IS_MAIN_TASK(task_info)) {
 		task_low_set_exc_return(EXC_RETURN_MSP);
 		task_low_set_msp(task_info->stack_top);
 		task_low_set_psp(NULL);
@@ -178,7 +172,7 @@ void PendSV_Handler()
 	/* We need to save address of return value on the MSP stack
 	   in order to set correct exception return behaviour.
 	   See 'task_low_set_exc_return'. */
-	task_low_exc_return = task_low_get_msp() + 1;
+	task_main->stack_top = task_low_get_msp();
 
 	/* No need to save/restore context for MSP.
 	   Master stack is left intact by software */

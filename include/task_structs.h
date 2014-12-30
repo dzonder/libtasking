@@ -3,9 +3,6 @@
 
 #include "task.h"
 
-extern void task_switch(void);
-extern void task_run(void);
-
 enum task_state {
 	TASK_STATE_UNUSED,
 	TASK_STATE_SPAWNED,
@@ -29,5 +26,10 @@ struct task_info {
 
 	struct task_info *list_next;
 };
+
+extern struct task_info *task_main;
+
+extern void task_switch(void);
+extern void task_run(struct task_info *);
 
 #endif /* _TASK_STRUCTS_H_ */

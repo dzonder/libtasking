@@ -6,8 +6,8 @@
 static struct task_info task_infos[TASK_MAX_TASKS];
 static struct task_info *task_info_list_head_free;
 
+struct task_info *task_main;
 static struct task_info *task_current;
-static struct task_info *task_main;
 
 static struct scheduler *scheduler = NULL;
 
@@ -157,15 +157,16 @@ void task_switch(void)
 	task_low_stack_restore(task_current);
 }
 
-void task_run(void)
+void task_run(struct task_info *task_info)
 {
-	assert(task_current != NULL);
-	assert(task_current->state == TASK_STATE_RUNNING);
+	assert(task_info != NULL);
+	assert(task_info->state == TASK_STATE_RUNNING);
+	assert(task_info == task_current);
 
 	/* Execute task */
-	task_current->task(task_current->arg);
+	task_info->task(task_info->arg);
 
-	task_current->state = TASK_STATE_TERMINATED;
+	task_info->state = TASK_STATE_TERMINATED;
 
 	task_yield();
 
