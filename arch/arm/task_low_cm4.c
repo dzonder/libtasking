@@ -2,7 +2,7 @@
 
 #include "task_structs.h"
 
-#ifdef __FPU_PRESENT
+#if (__FPU_PRESENT == 1)
 #include "ARMCM4_FP.h"
 #else
 #include "ARMCM4.h"
@@ -21,7 +21,9 @@ struct sw_fp_registers {
 };
 
 struct sw_stack_frame {
+#if (__FPU_PRESENT == 1)
 	struct sw_fp_registers fp;
+#endif
 	uint32_t r4_r11[8];
 };
 
@@ -85,6 +87,7 @@ static inline void task_low_set_psp(uint32_t *stack)
 
 static void task_low_context_save_fp(bool fp_used)
 {
+#if (__FPU_PRESENT == 1)
 	uint32_t *stack;
 
 	task_low_get_psp(&stack);
@@ -113,10 +116,12 @@ static void task_low_context_save_fp(bool fp_used)
 	}
 
 	task_low_set_psp((void *)stack - sizeof(struct sw_fp_registers));
+#endif
 }
 
 static void task_low_context_restore_fp(bool fp_used)
 {
+#if (__FPU_PRESENT == 1)
 	uint32_t *stack;
 
 	task_low_get_psp(&stack);
@@ -145,6 +150,7 @@ static void task_low_context_restore_fp(bool fp_used)
 	}
 
 	task_low_set_psp((void *)stack + sizeof(struct sw_fp_registers));
+#endif
 }
 
 static inline uint32_t * task_low_exc_return_addr(void)
