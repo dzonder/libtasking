@@ -77,6 +77,7 @@ void task_init(struct scheduler *_scheduler)
 
 	task_current = task_main;
 
+	/* This should be at the end */
 	task_low_init();
 }
 

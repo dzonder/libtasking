@@ -153,19 +153,33 @@ static inline void task_low_exc_return_set(uint32_t exc_return, uint8_t fp_used)
 	*task_low_exc_return_lr_addr_get() = exc_return;
 }
 
-void task_low_init(void)
+static void task_low_preemption_init(void)
 {
-	task_low_set_psp((uint32_t *)(&task_main_sw_stack_frame + 1));
+#if (TASK_PREEMPTION == 1)
+	assert(SysTick_Config(120 * TASK_PREEMPTION_TIMESLICE_US) == 0);
+#endif
 }
 
 void task_low_preemption_enable(void)
 {
-	// TODO
+#if (TASK_PREEMPTION == 1)
+	SysTick->CTRL |= SysTick_CTRL_TICKINT_Msk;
+#endif
 }
 
 void task_low_preemption_disable(void)
 {
-	// TODO
+#if (TASK_PREEMPTION == 1)
+	SysTick->CTRL &= ~SysTick_CTRL_TICKINT_Msk;
+#endif
+}
+
+void task_low_init(void)
+{
+	task_low_set_psp((uint32_t *)(&task_main_sw_stack_frame + 1));
+
+	/* This should be at the end */
+	task_low_preemption_init();
 }
 
 void task_low_yield(void)

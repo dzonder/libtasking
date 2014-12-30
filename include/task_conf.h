@@ -5,6 +5,10 @@
 #define TASK_PREEMPTION			0
 #endif
 
+#ifndef TASK_PREEMPTION_TIMESLICE_US
+#define TASK_PREEMPTION_TIMESLICE_US	(10 * 1000) /* 10 ms */
+#endif
+
 #ifndef TASK_MAX_TASKS
 #define TASK_MAX_TASKS			16U
 #endif
