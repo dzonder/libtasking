@@ -16,12 +16,13 @@
 
 #define IS_MAIN_TASK(task)	((task) == task_main)
 
+struct sw_fp_registers {
+	uint32_t s16_r31[16];
+};
+
 struct sw_stack_frame {
-//#if (__FPU_PRESENT == 1)
-//	uint32_t s16, s17, s18, s19, s20, s21, s22, s23;
-//	uint32_t s24, s25, s26, s27, s28, s29, s30, s31;
-//#endif
-	uint32_t r4, r5, r6, r7, r8, r9, r10, r11;
+	struct sw_fp_registers fp;
+	uint32_t r4_r11[8];
 };
 
 struct hw_stack_frame {
@@ -41,24 +42,22 @@ struct stack_frame {
    use MSP stack because it is used by exception handlers). */
 struct sw_stack_frame task_main_sw_stack_frame;
 
-// TODO floating point registers?
-
 __attribute__ ((always_inline))
 static inline void task_low_context_save(void)
 {
-	uint32_t scratch;
+	uint32_t *stack;
 	__asm volatile ("MRS %0, psp\n\t"
 			"STMDB %0!, {r4-r11}\n\t"
-			"MSR psp, %0\n\t" : "=r" (scratch));
+			"MSR psp, %0\n\t" : "=r" (stack));
 }
 
 __attribute__ ((always_inline))
 static inline void task_low_context_restore(void)
 {
-	uint32_t scratch;
+	uint32_t *stack;
 	__asm volatile ("MRS %0, psp\n\t"
 			"LDMFD %0!, {r4-r11}\n\t"
-			"MSR psp, %0\n\t" : "=r" (scratch));
+			"MSR psp, %0\n\t" : "=r" (stack));
 }
 
 static inline void task_low_get_msp(uint32_t **stack)
@@ -79,6 +78,73 @@ static inline void task_low_set_msp(uint32_t *stack)
 static inline void task_low_set_psp(uint32_t *stack)
 {
 	__asm volatile ("MSR psp, %0\n\t" : : "r" (stack));
+}
+
+/* Note: Lazy Stacking - if FP is not used in the exception handler then
+ * hardware-preserved registers will not be saved/restored. */
+
+static void task_low_context_save_fp(bool fp_used)
+{
+	uint32_t *stack;
+
+	task_low_get_psp(&stack);
+
+	// TODO: optimize this
+
+	if (fp_used) {
+		__asm ("MOV r0, %0\n\t"
+			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s31\n\t" "STR r1, [r0]\n\t"
+			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s30\n\t" "STR r1, [r0]\n\t"
+			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s29\n\t" "STR r1, [r0]\n\t"
+			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s28\n\t" "STR r1, [r0]\n\t"
+			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s27\n\t" "STR r1, [r0]\n\t"
+			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s26\n\t" "STR r1, [r0]\n\t"
+			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s25\n\t" "STR r1, [r0]\n\t"
+			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s24\n\t" "STR r1, [r0]\n\t"
+			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s23\n\t" "STR r1, [r0]\n\t"
+			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s22\n\t" "STR r1, [r0]\n\t"
+			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s21\n\t" "STR r1, [r0]\n\t"
+			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s20\n\t" "STR r1, [r0]\n\t"
+			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s19\n\t" "STR r1, [r0]\n\t"
+			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s18\n\t" "STR r1, [r0]\n\t"
+			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s17\n\t" "STR r1, [r0]\n\t"
+			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s16\n\t" "STR r1, [r0]\n\t"
+			: : "r" (stack));
+	}
+
+	task_low_set_psp((void *)stack - sizeof(struct sw_fp_registers));
+}
+
+static void task_low_context_restore_fp(bool fp_used)
+{
+	uint32_t *stack;
+
+	task_low_get_psp(&stack);
+
+	// TODO: optimize this
+
+	if (fp_used) {
+		__asm ("MOV r0, %0\n\t"
+			"LDR r1, [r0]\n\t" "VMOV.F32 s16, r1\n\t" "ADD r0, r0, #4\n\t"
+			"LDR r1, [r0]\n\t" "VMOV.F32 s17, r1\n\t" "ADD r0, r0, #4\n\t"
+			"LDR r1, [r0]\n\t" "VMOV.F32 s18, r1\n\t" "ADD r0, r0, #4\n\t"
+			"LDR r1, [r0]\n\t" "VMOV.F32 s19, r1\n\t" "ADD r0, r0, #4\n\t"
+			"LDR r1, [r0]\n\t" "VMOV.F32 s20, r1\n\t" "ADD r0, r0, #4\n\t"
+			"LDR r1, [r0]\n\t" "VMOV.F32 s21, r1\n\t" "ADD r0, r0, #4\n\t"
+			"LDR r1, [r0]\n\t" "VMOV.F32 s22, r1\n\t" "ADD r0, r0, #4\n\t"
+			"LDR r1, [r0]\n\t" "VMOV.F32 s23, r1\n\t" "ADD r0, r0, #4\n\t"
+			"LDR r1, [r0]\n\t" "VMOV.F32 s24, r1\n\t" "ADD r0, r0, #4\n\t"
+			"LDR r1, [r0]\n\t" "VMOV.F32 s25, r1\n\t" "ADD r0, r0, #4\n\t"
+			"LDR r1, [r0]\n\t" "VMOV.F32 s26, r1\n\t" "ADD r0, r0, #4\n\t"
+			"LDR r1, [r0]\n\t" "VMOV.F32 s27, r1\n\t" "ADD r0, r0, #4\n\t"
+			"LDR r1, [r0]\n\t" "VMOV.F32 s28, r1\n\t" "ADD r0, r0, #4\n\t"
+			"LDR r1, [r0]\n\t" "VMOV.F32 s29, r1\n\t" "ADD r0, r0, #4\n\t"
+			"LDR r1, [r0]\n\t" "VMOV.F32 s30, r1\n\t" "ADD r0, r0, #4\n\t"
+			"LDR r1, [r0]\n\t" "VMOV.F32 s31, r1\n\t" "ADD r0, r0, #4\n\t"
+			: : "r" (stack));
+	}
+
+	task_low_set_psp((void *)stack + sizeof(struct sw_fp_registers));
 }
 
 static inline uint32_t * task_low_exc_return_addr(void)
@@ -144,14 +210,7 @@ void task_low_stack_setup(struct task_info *task_info)
 	frame->hw.pc = (uint32_t)task_run;
 	frame->hw.xpsr = 0x01000000;
 
-	frame->sw.r4 = 0U;
-	frame->sw.r5 = 0U;
-	frame->sw.r6 = 0U;
-	frame->sw.r7 = 0U;
-	frame->sw.r8 = 0U;
-	frame->sw.r9 = 0U;
-	frame->sw.r10 = 0U;
-	frame->sw.r11 = 0U;
+	/* Do not care about initializing sw_stack_frame here */
 
 	/* Push frame onto the stack */
 	task_info->stack_top = (uint32_t *)frame;
@@ -163,14 +222,16 @@ void task_low_stack_save(struct task_info *task_info)
 {
 	assert(task_info->state == TASK_STATE_RUNNING);
 
+	task_info->fp_used = task_low_exc_return_fp_used();
+
+	task_low_context_save_fp(task_info->fp_used);
+
 	if (!IS_MAIN_TASK(task_info)) {
 		task_low_get_psp(&task_info->stack_top);
 
 		/* Stack overflow checking */
 		assert(task_info->stack_top >= task_info->stack);
 	}
-
-	task_info->fp_used = task_low_exc_return_fp_used();
 }
 
 void task_low_stack_restore(struct task_info *task_info)
@@ -189,6 +250,8 @@ void task_low_stack_restore(struct task_info *task_info)
 		task_low_exc_return_set(EXC_RETURN_PSP, task_info->fp_used);
 		task_low_set_psp(task_info->stack_top);
 	}
+
+	task_low_context_restore_fp(task_info->fp_used);
 }
 
 void PendSV_Handler()
@@ -199,15 +262,6 @@ void PendSV_Handler()
 	task_low_get_msp(&task_main->stack_top);
 
 	task_low_context_save();
-
-	/* No need to save/restore context for MSP.
-	   Master stack is left intact by software */
-
-	/* Trigger hardware FP context save (see Lazy Stacking).
-	   Lazy stacking could also be disabled - but it would
-	   influence all exception handlers and we care only about
-	   scheduling related exceptions. */
-	__asm ("VMOV.F32 s1, s1\n\t");
 
 	task_switch();
 
