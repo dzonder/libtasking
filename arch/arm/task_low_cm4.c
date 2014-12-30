@@ -14,13 +14,13 @@
 #define EXC_RETURN_MSP		(uint32_t)(0xFFFFFFF9)
 #define EXC_RETURN_PSP		(uint32_t)(0xFFFFFFFD)
 
-#define EXC_RETURN_FP_MAIN	(uint32_t)(0xFFFFFFE1)
-#define EXC_RETURN_FP_MSP	(uint32_t)(0xFFFFFFE9)
-#define EXC_RETURN_FP_PSP	(uint32_t)(0xFFFFFFED)
-
 #define IS_MAIN_TASK(task)	((task) == task_main)
 
 struct sw_stack_frame {
+//#if (__FPU_PRESENT == 1)
+//	uint32_t s16, s17, s18, s19, s20, s21, s22, s23;
+//	uint32_t s24, s25, s26, s27, s28, s29, s30, s31;
+//#endif
 	uint32_t r4, r5, r6, r7, r8, r9, r10, r11;
 };
 
@@ -36,6 +36,10 @@ struct stack_frame {
 	struct sw_stack_frame sw;
 	struct hw_stack_frame hw;
 };
+
+/* This is used to SW preserve main task registers (we can not
+   use MSP stack because it is used by exception handlers). */
+struct sw_stack_frame task_main_sw_stack_frame;
 
 // TODO floating point registers?
 
@@ -57,22 +61,14 @@ static inline void task_low_context_restore(void)
 			"MSR psp, %0\n\t" : "=r" (scratch));
 }
 
-static inline uint32_t * task_low_get_msp(void)
+static inline void task_low_get_msp(uint32_t **stack)
 {
-	uint32_t *stack = NULL;
-
-	__asm volatile ("MRS %0, msp\n\t" : "=r" (stack));
-
-	return stack;
+	__asm volatile ("MRS %0, msp\n\t" : "=r" (*stack));
 }
 
-static inline uint32_t * task_low_get_psp(void)
+static inline void task_low_get_psp(uint32_t **stack)
 {
-	uint32_t *stack = NULL;
-
-	__asm volatile ("MRS %0, psp\n\t" : "=r" (stack));
-
-	return stack;
+	__asm volatile ("MRS %0, psp\n\t" : "=r" (*stack));
 }
 
 static inline void task_low_set_msp(uint32_t *stack)
@@ -85,12 +81,30 @@ static inline void task_low_set_psp(uint32_t *stack)
 	__asm volatile ("MSR psp, %0\n\t" : : "r" (stack));
 }
 
-void task_low_set_exc_return(uint32_t exc_return)
+static inline uint32_t * task_low_exc_return_addr(void)
 {
+	return task_main->stack_top + 1;
+}
+
+static uint8_t task_low_exc_return_fp_used(void)
+{
+	return (*task_low_exc_return_addr() & (1U << 4U)) == 0U;
+}
+
+static void task_low_exc_return_set(uint32_t exc_return, uint8_t fp_used)
+{
+	/* Set FP bit according to current value */
+	exc_return &= ~(fp_used << 4U);
+
 	/* Modify LR stack saved value in order to set the
 	   correct stack pointer and mode during exception
 	   return. */
-	*(task_main->stack_top + 1) = exc_return;
+	*task_low_exc_return_addr() = exc_return;
+}
+
+void task_low_init(void)
+{
+	task_low_set_psp((uint32_t *)(&task_main_sw_stack_frame + 1));
 }
 
 void task_low_preemption_enable(void)
@@ -147,22 +161,32 @@ void task_low_stack_setup(struct task_info *task_info)
 
 void task_low_stack_save(struct task_info *task_info)
 {
+	assert(task_info->state == TASK_STATE_RUNNING);
+
 	if (!IS_MAIN_TASK(task_info)) {
-		task_info->stack_top = task_low_get_psp();
+		task_low_get_psp(&task_info->stack_top);
 
 		/* Stack overflow checking */
 		assert(task_info->stack_top >= task_info->stack);
 	}
+
+	task_info->fp_used = task_low_exc_return_fp_used();
 }
 
 void task_low_stack_restore(struct task_info *task_info)
 {
+	assert(task_info->state == TASK_STATE_RUNNING);
+
 	if (IS_MAIN_TASK(task_info)) {
-		task_low_set_exc_return(EXC_RETURN_MSP);
+		task_low_exc_return_set(EXC_RETURN_MSP, task_info->fp_used);
 		task_low_set_msp(task_info->stack_top);
-		task_low_set_psp(NULL);
+
+		/* Here we use a trick to save SW preserved registers.
+		   We use PSP for this which holds a special allocated
+		   memory location for MSP SW preserved context. */
+		task_low_set_psp((uint32_t *)(&task_main_sw_stack_frame + 1));
 	} else {
-		task_low_set_exc_return(EXC_RETURN_PSP);
+		task_low_exc_return_set(EXC_RETURN_PSP, task_info->fp_used);
 		task_low_set_psp(task_info->stack_top);
 	}
 }
@@ -172,18 +196,22 @@ void PendSV_Handler()
 	/* We need to save address of return value on the MSP stack
 	   in order to set correct exception return behaviour.
 	   See 'task_low_set_exc_return'. */
-	task_main->stack_top = task_low_get_msp();
+	task_low_get_msp(&task_main->stack_top);
+
+	task_low_context_save();
 
 	/* No need to save/restore context for MSP.
 	   Master stack is left intact by software */
 
-	if (task_low_get_psp() != NULL)
-		task_low_context_save();
+	/* Trigger hardware FP context save (see Lazy Stacking).
+	   Lazy stacking could also be disabled - but it would
+	   influence all exception handlers and we care only about
+	   scheduling related exceptions. */
+	__asm ("VMOV.F32 s1, s1\n\t");
 
 	task_switch();
 
-	if (task_low_get_psp() != NULL)
-		task_low_context_restore();
+	task_low_context_restore();
 }
 
 void SysTick_Handler() {

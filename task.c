@@ -76,6 +76,8 @@ void task_init(struct scheduler *_scheduler)
 	task_main->state = TASK_STATE_RUNNING;
 
 	task_current = task_main;
+
+	task_low_init();
 }
 
 void task_spawn_opt(task_t task, void *arg, struct task_opt *opt)
@@ -124,8 +126,10 @@ void task_switch(void)
 	switch (task_current->state) {
 
 	case TASK_STATE_RUNNING:
-		task_current->state = TASK_STATE_SPAWNED;
 		task_low_stack_save(task_current);
+
+		task_current->state = TASK_STATE_SPAWNED;
+
 		scheduler->enqueue(task_current);
 		break;
 

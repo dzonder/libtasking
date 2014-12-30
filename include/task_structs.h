@@ -24,6 +24,8 @@ struct task_info {
 	uint32_t *stack_top;	/* Last known top of the stack
 				   (valid for non-running tasks). */
 
+	uint8_t fp_used;
+
 	struct task_info *list_next;
 };
 

@@ -5,6 +5,8 @@
 
 struct task_info;
 
+void task_low_init(void);
+
 void task_low_preemption_enable(void);
 void task_low_preemption_disable(void);
 

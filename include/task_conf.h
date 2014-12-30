@@ -5,10 +5,6 @@
 #define TASK_PREEMPTION			0
 #endif
 
-#ifndef TASK_FP_PRESERVE
-#define TASK_FP_PRESERVE		0
-#endif
-
 #ifndef TASK_MAX_TASKS
 #define TASK_MAX_TASKS			16U
 #endif
