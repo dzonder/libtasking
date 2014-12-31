@@ -127,11 +127,14 @@ void task_switch(void)
 
 	switch (task_current->state) {
 
+	case TASK_STATE_WAITING:
+		task_low_stack_save(task_current);
+		break;
+
 	case TASK_STATE_RUNNING:
 		task_low_stack_save(task_current);
 
 		task_current->state = TASK_STATE_RUNNABLE;
-
 		scheduler->enqueue(task_current);
 		break;
 
@@ -179,4 +182,52 @@ void task_run(struct task_info *task_info)
 	task_yield();
 
 	for (;;); /* RIP - task shall be removed in 'task_switch' */
+}
+
+void task_wait(struct task_info **list_head_wait_queue,
+		struct task_info **list_tail_wait_queue)
+{
+	task_low_preemption_disable();
+
+	assert(list_head_wait_queue != NULL);
+	assert(list_tail_wait_queue != NULL);
+
+	task_current->state = TASK_STATE_WAITING;
+	task_current->list_next = NULL;
+
+	if (*list_tail_wait_queue == NULL) {
+		*list_head_wait_queue = task_current;
+	} else {
+		(*list_tail_wait_queue)->list_next = task_current;
+	}
+	*list_tail_wait_queue = task_current;
+
+	task_low_preemption_enable();
+
+	task_yield();
+}
+
+void task_signal(struct task_info **list_head_wait_queue,
+		struct task_info **list_tail_wait_queue)
+{
+	task_low_preemption_disable();
+
+	assert(list_head_wait_queue != NULL);
+	assert(list_tail_wait_queue != NULL);
+
+	struct task_info *waiting_task = *list_head_wait_queue;
+
+	if (waiting_task != NULL) {
+		assert(waiting_task->state == TASK_STATE_WAITING);
+
+		*list_head_wait_queue = waiting_task->list_next;
+		if (*list_head_wait_queue == NULL)
+			*list_tail_wait_queue = NULL;
+
+		waiting_task->state = TASK_STATE_RUNNABLE;
+		waiting_task->list_next = NULL;
+		scheduler->enqueue(waiting_task);
+	}
+
+	task_low_preemption_enable();
 }

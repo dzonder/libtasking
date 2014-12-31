@@ -58,7 +58,7 @@ void semaphore_post(struct semaphore *sem)
 {
 	mutex_lock(sem->mutex_access);
 
-	if (++sem->value < 0)
+	if (++sem->value <= 0)
 		mutex_unlock(sem->mutex_delay);
 
 	mutex_unlock(sem->mutex_access);

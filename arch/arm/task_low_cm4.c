@@ -219,7 +219,7 @@ void task_low_stack_setup(struct task_info *task_info)
 
 void task_low_stack_save(struct task_info *task_info)
 {
-	assert(task_info->state == TASK_STATE_RUNNING);
+	assert(task_info->state == TASK_STATE_RUNNING || task_info->state == TASK_STATE_WAITING);
 
 	task_info->fp_used = task_low_exc_return_fp_used();
 
