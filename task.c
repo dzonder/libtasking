@@ -27,7 +27,7 @@ static struct task_info *task_alloc_info(void)
 	task_info_list_head_free = task_info->list_next;
 
 	task_info->list_next = NULL;
-	task_info->state = TASK_STATE_SPAWNED;
+	task_info->state = TASK_STATE_RUNNABLE;
 
 	return task_info;
 }
@@ -129,7 +129,7 @@ void task_switch(void)
 	case TASK_STATE_RUNNING:
 		task_low_stack_save(task_current);
 
-		task_current->state = TASK_STATE_SPAWNED;
+		task_current->state = TASK_STATE_RUNNABLE;
 
 		scheduler->enqueue(task_current);
 		break;
@@ -157,7 +157,7 @@ void task_switch(void)
 	// TODO: this could be NULL if all tasks are sleeping (enter low-power mode).
 	assert(task_current != NULL);
 
-	assert(task_current->state == TASK_STATE_SPAWNED);
+	assert(task_current->state == TASK_STATE_RUNNABLE);
 
 	task_current->state = TASK_STATE_RUNNING;
 

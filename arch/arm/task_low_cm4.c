@@ -190,7 +190,7 @@ void task_low_yield(void)
 void task_low_stack_setup(struct task_info *task_info)
 {
 	assert(task_info != NULL);
-	assert(task_info->state == TASK_STATE_SPAWNED);
+	assert(task_info->state == TASK_STATE_RUNNABLE);
 
 	/* We need room for at least two stack frames on the stack */
 	assert(task_info->opt.stack_size >= 2 * sizeof(struct stack_frame));
