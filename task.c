@@ -47,8 +47,6 @@ void task_init(struct scheduler *_scheduler)
 	scheduler = _scheduler;
 
 	assert(scheduler != NULL);
-	assert(scheduler->dequeue != NULL);
-	assert(scheduler->enqueue != NULL);
 
 	/* Initialize task_info pool as 'unused' list */
 	for (uint16_t i = 0U; i < TASK_MAX_TASKS; ++i) {
@@ -63,6 +61,9 @@ void task_init(struct scheduler *_scheduler)
 
 	if (scheduler->init != NULL)
 		scheduler->init();
+
+	assert(scheduler->dequeue != NULL);
+	assert(scheduler->enqueue != NULL);
 
 	task_main = task_alloc_info();
 
