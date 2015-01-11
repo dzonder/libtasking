@@ -142,7 +142,7 @@ void task_switch(void)
 		/* Main task should never have a terminated state */
 		assert(task_current != task_main);
 
-		/* User did not supply stack - is was mallocd - lets free it */
+		/* User did not supply stack - it was malloced - lets free it */
 		if (task_current->opt.user_stack == NULL)
 			free(task_current->stack);
 

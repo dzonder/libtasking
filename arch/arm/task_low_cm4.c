@@ -20,6 +20,11 @@ struct sw_fp_registers {
 	uint32_t s16_r31[16];
 };
 
+struct hw_fp_registers {
+	uint32_t s0_r15[16];
+	uint32_t fpscr;
+};
+
 struct sw_stack_frame {
 #if (__FPU_PRESENT == 1)
 	struct sw_fp_registers fp;
@@ -33,6 +38,9 @@ struct hw_stack_frame {
 	uint32_t lr;
 	uint32_t pc;
 	uint32_t xpsr;
+#if (__FPU_PRESENT == 1)
+	struct hw_fp_registers fp;
+#endif
 };
 
 struct stack_frame {
@@ -200,6 +208,9 @@ void task_low_stack_setup(struct task_info *task_info)
 
 	struct stack_frame *frame = (struct stack_frame *)task_info->stack_top - 1;
 
+	/* Initialize hardware-saved fp registers */
+	memset(&frame->hw.fp, 0, sizeof(frame->hw.fp));
+
 	frame->hw.r0 = (uint32_t)task_info;
 	frame->hw.r1 = 0U;
 	frame->hw.r2 = 0U;
@@ -209,7 +220,8 @@ void task_low_stack_setup(struct task_info *task_info)
 	frame->hw.pc = (uint32_t)task_run;
 	frame->hw.xpsr = 0x01000000;
 
-	/* Do not care about initializing sw_stack_frame here */
+	/* Initialize software-saved registers */
+	memset(&frame->sw, 0, sizeof(frame->sw));
 
 	/* Push frame onto the stack */
 	task_info->stack_top = (uint32_t *)frame;

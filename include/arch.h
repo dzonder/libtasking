@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* The following functions should be set as interrupt handlers respectively:
       1. SysTick_Handler()
