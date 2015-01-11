@@ -94,7 +94,9 @@ static void task_low_context_save_fp(bool fp_used)
 			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s18\n\t" "STR r1, [r0]\n\t"
 			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s17\n\t" "STR r1, [r0]\n\t"
 			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s16\n\t" "STR r1, [r0]\n\t"
-			: : "r" (stack));
+			:
+			: "r" (stack)
+			: "r0", "r1");
 	}
 
 	task_low_set_psp((void *)stack - sizeof(struct sw_fp_registers));
@@ -128,7 +130,9 @@ static void task_low_context_restore_fp(bool fp_used)
 			"LDR r1, [r0]\n\t" "VMOV.F32 s29, r1\n\t" "ADD r0, r0, #4\n\t"
 			"LDR r1, [r0]\n\t" "VMOV.F32 s30, r1\n\t" "ADD r0, r0, #4\n\t"
 			"LDR r1, [r0]\n\t" "VMOV.F32 s31, r1\n\t" "ADD r0, r0, #4\n\t"
-			: : "r" (stack));
+			:
+			: "r" (stack)
+			: "r0", "r1");
 	}
 
 	task_low_set_psp((void *)stack + sizeof(struct sw_fp_registers));
@@ -137,12 +141,12 @@ static void task_low_context_restore_fp(bool fp_used)
 
 void task_low_exc_return_lr_addr_set(uint32_t *stack)
 {
-	task_main->stack_top = stack;
+	task_main->stack = stack;
 }
 
 static inline uint32_t * task_low_exc_return_lr_addr_get(void)
 {
-	return task_main->stack_top;
+	return task_main->stack;
 }
 
 static inline uint8_t task_low_exc_return_fp_used(void)
@@ -237,9 +241,9 @@ void task_low_stack_save(struct task_info *task_info)
 
 	task_low_context_save_fp(task_info->fp_used);
 
-	if (!IS_MAIN_TASK(task_info)) {
-		task_low_get_psp(&task_info->stack_top);
+	task_low_get_psp(&task_info->stack_top);
 
+	if (!IS_MAIN_TASK(task_info)) {
 		/* Stack overflow checking */
 		assert(task_info->stack_top >= task_info->stack);
 	}
@@ -249,18 +253,13 @@ void task_low_stack_restore(struct task_info *task_info)
 {
 	assert(task_info->state == TASK_STATE_RUNNING);
 
-	if (IS_MAIN_TASK(task_info)) {
-		task_low_exc_return_set(EXC_RETURN_MSP, task_info->fp_used);
+	uint32_t exc_return = IS_MAIN_TASK(task_info)
+				? EXC_RETURN_MSP
+				: EXC_RETURN_PSP;
 
-		/* Here we use a trick to save SW preserved registers.
-		   We use PSP for this which holds a special allocated
-		   memory location for MSP SW preserved context. */
-		task_low_set_psp((uint32_t *)(&task_main_sw_stack_frame + 1));
-	} else {
-		task_low_exc_return_set(EXC_RETURN_PSP, task_info->fp_used);
+	task_low_exc_return_set(exc_return, task_info->fp_used);
 
-		task_low_set_psp(task_info->stack_top);
-	}
+	task_low_set_psp(task_info->stack_top);
 
 	task_low_context_restore_fp(task_info->fp_used);
 }
