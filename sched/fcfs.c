@@ -36,7 +36,8 @@ static struct task_info * fcfs_dequeue(void)
 {
 	struct task_info *task_info = list_head_queued_tasks;
 
-	assert(task_info != NULL);
+	if (task_info == NULL)
+		return NULL;
 
 	list_head_queued_tasks = task_info->list_next;
 	if (list_head_queued_tasks == NULL)

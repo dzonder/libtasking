@@ -183,11 +183,13 @@ void task_switch(void)
 
 	}
 
-	/* Choose new task */
-	task_current = task_scheduler_dequeue();
+	do {
+		/* Choose new task */
+		task_current = task_scheduler_dequeue();
 
-	// TODO: this could be NULL if all tasks are sleeping (enter low-power mode).
-	assert(task_current != NULL);
+		if (task_current == NULL)
+			task_low_enter_low_power_mode();
+	} while (task_current == NULL);
 
 	assert(task_current->state == TASK_STATE_RUNNABLE);
 

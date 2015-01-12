@@ -196,9 +196,17 @@ void task_low_irq_disable(void)
 	__disable_irq();
 }
 
+void task_low_enter_low_power_mode(void)
+{
+	__asm volatile ("wfi");
+}
+
 void task_low_init(void)
 {
 	task_low_set_psp((uint32_t *)(&task_main_sw_stack_frame + 1));
+
+	/* Set PendSV priority to low-urgency (same as SysTick) */
+	NVIC_SetPriority(PendSV_IRQn, (1 << __NVIC_PRIO_BITS) - 1);
 
 	/* This should be at the end */
 	task_low_preemption_init();
