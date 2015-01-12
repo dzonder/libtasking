@@ -1,16 +1,12 @@
-/* Current implementation uses two mutexes. Based on the following algorithm:
-   http://www.csee.wvu.edu/~jdm/classes/cs550/notes/tech/mutex/semimp3.html */
-
 #include "semaphore.h"
 
 #include "arch.h"
-#include "mutex.h"
+#include "task_structs.h"
 
 struct semaphore {
 	int32_t value;
-
-	struct mutex *mutex_access;
-	struct mutex *mutex_delay;
+	struct task_info *list_head_wait_queue;
+	struct task_info *list_tail_wait_queue;
 };
 
 struct semaphore * semaphore_init(int32_t value)
@@ -22,10 +18,8 @@ struct semaphore * semaphore_init(int32_t value)
 
 	sem->value = value;
 
-	sem->mutex_access = mutex_init();
-	sem->mutex_delay = mutex_init();
-
-	mutex_lock(sem->mutex_delay);
+	sem->list_head_wait_queue = NULL;
+	sem->list_tail_wait_queue = NULL;
 
 	return sem;
 }
@@ -33,33 +27,54 @@ struct semaphore * semaphore_init(int32_t value)
 void semaphore_free(struct semaphore *sem)
 {
 	//assert(sem->value == _initial_sem_value_);
-
-	mutex_unlock(sem->mutex_delay);
-
-	mutex_free(sem->mutex_access);
-	mutex_free(sem->mutex_delay);
+	assert(sem->list_head_wait_queue == NULL);
+	assert(sem->list_tail_wait_queue == NULL);
 
 	free(sem);
 }
 
 void semaphore_wait(struct semaphore *sem)
 {
-	mutex_lock(sem->mutex_access);
+	int32_t value;
+	uint32_t strex_failed = 1U;
 
-	if (--sem->value < 0) {
-		mutex_unlock(sem->mutex_access);
-		mutex_lock(sem->mutex_delay);
-	} else {
-		mutex_unlock(sem->mutex_access);
+	while (strex_failed) {
+		__asm volatile("LDREX %0, [%1]\n\t"
+			: "=r" (value)
+			: "r" (&sem->value));
+
+		--value;
+
+		__asm volatile("STREX %0, %1, [%2]\n\t"
+			: "=r" (strex_failed)
+			: "r" (value), "r" (&sem->value));
 	}
+
+	if (value < 0)
+		task_wait(&sem->list_head_wait_queue, &sem->list_tail_wait_queue);
+
+	__asm("dmb");
 }
 
 void semaphore_post(struct semaphore *sem)
 {
-	mutex_lock(sem->mutex_access);
+	int32_t value;
+	uint32_t strex_failed = 1U;
 
-	if (++sem->value <= 0)
-		mutex_unlock(sem->mutex_delay);
+	__asm("dmb");
 
-	mutex_unlock(sem->mutex_access);
+	while (strex_failed) {
+		__asm volatile("LDREX %0, [%1]\n\t"
+			: "=r" (value)
+			: "r" (&sem->value));
+
+		++value;
+
+		__asm volatile("STREX %0, %1, [%2]\n\t"
+			: "=r" (strex_failed)
+			: "r" (value), "r" (&sem->value));
+	}
+
+	if (value <= 0)
+		task_signal(&sem->list_head_wait_queue, &sem->list_tail_wait_queue);
 }

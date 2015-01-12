@@ -34,7 +34,4 @@ extern struct task_info *task_main;
 extern void task_switch(void);
 extern void task_run(struct task_info *task_info);
 
-extern void task_wait(struct task_info **list_head_wait_queue, struct task_info **list_tail_wait_queue);
-extern void task_signal(struct task_info **list_head_wait_queue, struct task_info **list_tail_wait_queue);
-
 #endif /* _TASK_STRUCTS_H_ */

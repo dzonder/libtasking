@@ -26,4 +26,8 @@ void task_spawn_opt(task_t task, void *arg, struct task_opt *opt);
 /* Running task can use yield to relinquish MCU */
 void task_yield(void);
 
+/* Wait queues */
+void task_wait(struct task_info **list_head_wait_queue, struct task_info **list_tail_wait_queue);
+void task_signal(struct task_info **list_head_wait_queue, struct task_info **list_tail_wait_queue);
+
 #endif /* _TASK_H_ */
