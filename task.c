@@ -19,6 +19,8 @@ static struct task_opt default_task_opt = {
 
 static struct task_info *task_alloc_info(void)
 {
+	task_low_irq_disable();
+
 	struct task_info *task_info = task_info_list_head_free;
 
 	assert(task_info != NULL);
@@ -29,17 +31,45 @@ static struct task_info *task_alloc_info(void)
 	task_info->list_next = NULL;
 	task_info->state = TASK_STATE_RUNNABLE;
 
+	task_low_irq_enable();
+
 	return task_info;
 }
 
 static void task_free_info(struct task_info *task_info)
 {
+	task_low_irq_disable();
+
 	assert(task_info->state == TASK_STATE_TERMINATED);
 
 	task_info->state = TASK_STATE_UNUSED;
 	task_info->list_next = task_info_list_head_free;
 
 	task_info_list_head_free = task_info;
+
+	task_low_irq_enable();
+}
+
+static void task_scheduler_enqueue(struct task_info *task_info)
+{
+	task_low_irq_disable();
+
+	assert(scheduler != NULL);
+	scheduler->enqueue(task_info);
+
+	task_low_irq_enable();
+}
+
+static struct task_info *task_scheduler_dequeue(void)
+{
+	task_low_irq_disable();
+
+	assert(scheduler != NULL);
+	struct task_info *task_info = scheduler->dequeue();
+
+	task_low_irq_enable();
+
+	return task_info;
 }
 
 void task_init(struct scheduler *_scheduler)
@@ -84,8 +114,6 @@ void task_init(struct scheduler *_scheduler)
 
 void task_spawn_opt(task_t task, void *arg, struct task_opt *opt)
 {
-	task_low_preemption_disable();
-
 	struct task_info *task_info = task_alloc_info();
 
 	task_info->task = task;
@@ -94,7 +122,9 @@ void task_spawn_opt(task_t task, void *arg, struct task_opt *opt)
 
 	if (task_info->opt.user_stack == NULL) {
 		/* User did not provide a stack */
+		task_low_irq_disable();
 		task_info->stack = malloc(task_info->opt.stack_size);
+		task_low_irq_enable();
 	} else {
 		task_info->stack = task_info->opt.user_stack;
 	}
@@ -103,11 +133,7 @@ void task_spawn_opt(task_t task, void *arg, struct task_opt *opt)
 
 	task_low_stack_setup(task_info);
 
-	assert(scheduler != NULL);
-
-	scheduler->enqueue(task_info);
-
-	task_low_preemption_enable();
+	task_scheduler_enqueue(task_info);
 }
 
 void task_spawn(task_t task, void *arg)
@@ -122,7 +148,6 @@ void task_yield(void)
 
 void task_switch(void)
 {
-	assert(scheduler != NULL);
 	assert(task_current != NULL);
 
 	switch (task_current->state) {
@@ -135,7 +160,7 @@ void task_switch(void)
 		task_low_stack_save(task_current);
 
 		task_current->state = TASK_STATE_RUNNABLE;
-		scheduler->enqueue(task_current);
+		task_scheduler_enqueue(task_current);
 		break;
 
 	case TASK_STATE_TERMINATED:
@@ -143,8 +168,11 @@ void task_switch(void)
 		assert(task_current != task_main);
 
 		/* User did not supply stack - it was malloced - lets free it */
-		if (task_current->opt.user_stack == NULL)
+		if (task_current->opt.user_stack == NULL) {
+			task_low_irq_disable();
 			free(task_current->stack);
+			task_low_irq_enable();
+		}
 
 		task_free_info(task_current);
 		task_current = NULL;
@@ -156,7 +184,7 @@ void task_switch(void)
 	}
 
 	/* Choose new task */
-	task_current = scheduler->dequeue();
+	task_current = task_scheduler_dequeue();
 
 	// TODO: this could be NULL if all tasks are sleeping (enter low-power mode).
 	assert(task_current != NULL);
@@ -187,7 +215,7 @@ void task_run(struct task_info *task_info)
 void task_wait(struct task_info **list_head_wait_queue,
 		struct task_info **list_tail_wait_queue)
 {
-	task_low_preemption_disable();
+	task_low_irq_disable();
 
 	assert(list_head_wait_queue != NULL);
 	assert(list_tail_wait_queue != NULL);
@@ -202,7 +230,7 @@ void task_wait(struct task_info **list_head_wait_queue,
 	}
 	*list_tail_wait_queue = task_current;
 
-	task_low_preemption_enable();
+	task_low_irq_enable();
 
 	task_yield();
 }
@@ -210,7 +238,7 @@ void task_wait(struct task_info **list_head_wait_queue,
 void task_signal(struct task_info **list_head_wait_queue,
 		struct task_info **list_tail_wait_queue)
 {
-	task_low_preemption_disable();
+	task_low_irq_disable();
 
 	assert(list_head_wait_queue != NULL);
 	assert(list_tail_wait_queue != NULL);
@@ -226,8 +254,10 @@ void task_signal(struct task_info **list_head_wait_queue,
 
 		waiting_task->state = TASK_STATE_RUNNABLE;
 		waiting_task->list_next = NULL;
-		scheduler->enqueue(waiting_task);
 	}
 
-	task_low_preemption_enable();
+	task_low_irq_enable();
+
+	if (waiting_task != NULL)
+		task_scheduler_enqueue(waiting_task);
 }

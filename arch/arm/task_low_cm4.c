@@ -186,6 +186,16 @@ void task_low_preemption_disable(void)
 #endif
 }
 
+void task_low_irq_enable(void)
+{
+	__enable_irq();
+}
+
+void task_low_irq_disable(void)
+{
+	__disable_irq();
+}
+
 void task_low_init(void)
 {
 	task_low_set_psp((uint32_t *)(&task_main_sw_stack_frame + 1));
