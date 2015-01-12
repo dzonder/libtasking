@@ -212,45 +212,49 @@ void task_run(struct task_info *task_info)
 	for (;;); /* RIP - task shall be removed in 'task_switch' */
 }
 
-void task_wait(struct task_info **list_head_wait_queue,
-		struct task_info **list_tail_wait_queue)
+void task_wait_queue_init(struct wait_queue *wait_queue)
+{
+	assert(wait_queue != NULL);
+
+	wait_queue->list_head = NULL;
+	wait_queue->list_tail = NULL;
+}
+
+void task_wait_queue_wait(struct wait_queue *wait_queue)
 {
 	task_low_irq_disable();
 
-	assert(list_head_wait_queue != NULL);
-	assert(list_tail_wait_queue != NULL);
+	assert(wait_queue != NULL);
 
 	task_current->state = TASK_STATE_WAITING;
 	task_current->list_next = NULL;
 
-	if (*list_tail_wait_queue == NULL) {
-		*list_head_wait_queue = task_current;
+	if (wait_queue->list_tail == NULL) {
+		wait_queue->list_head = task_current;
 	} else {
-		(*list_tail_wait_queue)->list_next = task_current;
+		wait_queue->list_tail->list_next = task_current;
 	}
-	*list_tail_wait_queue = task_current;
+	wait_queue->list_tail = task_current;
 
 	task_low_irq_enable();
 
 	task_yield();
 }
 
-void task_signal(struct task_info **list_head_wait_queue,
-		struct task_info **list_tail_wait_queue)
+void task_wait_queue_signal(struct wait_queue *wait_queue)
 {
 	task_low_irq_disable();
 
-	assert(list_head_wait_queue != NULL);
-	assert(list_tail_wait_queue != NULL);
+	assert(wait_queue != NULL);
 
-	struct task_info *waiting_task = *list_head_wait_queue;
+	struct task_info *waiting_task = wait_queue->list_head;
 
 	if (waiting_task != NULL) {
 		assert(waiting_task->state == TASK_STATE_WAITING);
 
-		*list_head_wait_queue = waiting_task->list_next;
-		if (*list_head_wait_queue == NULL)
-			*list_tail_wait_queue = NULL;
+		wait_queue->list_head = waiting_task->list_next;
+		if (wait_queue->list_head == NULL)
+			wait_queue->list_tail = NULL;
 
 		waiting_task->state = TASK_STATE_RUNNABLE;
 		waiting_task->list_next = NULL;

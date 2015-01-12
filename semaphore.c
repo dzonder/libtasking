@@ -1,12 +1,11 @@
 #include "semaphore.h"
 
 #include "arch.h"
-#include "task_structs.h"
+#include "task.h"
 
 struct semaphore {
 	int32_t value;
-	struct task_info *list_head_wait_queue;
-	struct task_info *list_tail_wait_queue;
+	struct wait_queue wait_queue;
 };
 
 struct semaphore * semaphore_init(int32_t value)
@@ -18,8 +17,7 @@ struct semaphore * semaphore_init(int32_t value)
 
 	sem->value = value;
 
-	sem->list_head_wait_queue = NULL;
-	sem->list_tail_wait_queue = NULL;
+	task_wait_queue_init(&sem->wait_queue);
 
 	return sem;
 }
@@ -27,8 +25,8 @@ struct semaphore * semaphore_init(int32_t value)
 void semaphore_free(struct semaphore *sem)
 {
 	//assert(sem->value == _initial_sem_value_);
-	assert(sem->list_head_wait_queue == NULL);
-	assert(sem->list_tail_wait_queue == NULL);
+	//assert(sem->wait_queue->list_head == NULL);
+	//assert(sem->wait_queue->list_tail == NULL);
 
 	free(sem);
 }
@@ -51,7 +49,7 @@ void semaphore_wait(struct semaphore *sem)
 	}
 
 	if (value < 0)
-		task_wait(&sem->list_head_wait_queue, &sem->list_tail_wait_queue);
+		task_wait_queue_wait(&sem->wait_queue);
 
 	__asm("dmb");
 }
@@ -76,5 +74,5 @@ void semaphore_post(struct semaphore *sem)
 	}
 
 	if (value <= 0)
-		task_signal(&sem->list_head_wait_queue, &sem->list_tail_wait_queue);
+		task_wait_queue_signal(&sem->wait_queue);
 }

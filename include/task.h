@@ -27,7 +27,13 @@ void task_spawn_opt(task_t task, void *arg, struct task_opt *opt);
 void task_yield(void);
 
 /* Wait queues */
-void task_wait(struct task_info **list_head_wait_queue, struct task_info **list_tail_wait_queue);
-void task_signal(struct task_info **list_head_wait_queue, struct task_info **list_tail_wait_queue);
+struct wait_queue {
+	struct task_info *list_head;
+	struct task_info *list_tail;
+};
+
+void task_wait_queue_init(struct wait_queue *wait_queue);
+void task_wait_queue_wait(struct wait_queue *wait_queue);
+void task_wait_queue_signal(struct wait_queue *wait_queue);
 
 #endif /* _TASK_H_ */
