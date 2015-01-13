@@ -167,23 +167,25 @@ static inline void task_low_exc_return_set(uint32_t exc_return, uint8_t fp_used)
 
 static void task_low_preemption_init(void)
 {
-#if (TASK_PREEMPTION == 1)
-	assert(SysTick_Config(120 * TASK_PREEMPTION_TIMESLICE_US) == 0);
-#endif
+	uint32_t ticks = 120 * TASK_PREEMPTION_TIMESLICE_US;
+
+	assert((ticks - 1) <= SysTick_LOAD_RELOAD_Msk);
+
+	NVIC_SetPriority (SysTick_IRQn, (1 << __NVIC_PRIO_BITS) - 1);
+
+	SysTick->LOAD = ticks - 1;
+	SysTick->VAL = 0;
+	SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_ENABLE_Msk;
 }
 
 void task_low_preemption_enable(void)
 {
-#if (TASK_PREEMPTION == 1)
 	SysTick->CTRL |= SysTick_CTRL_TICKINT_Msk;
-#endif
 }
 
 void task_low_preemption_disable(void)
 {
-#if (TASK_PREEMPTION == 1)
 	SysTick->CTRL &= ~SysTick_CTRL_TICKINT_Msk;
-#endif
 }
 
 void task_low_irq_enable(void)
@@ -208,7 +210,6 @@ void task_low_init(void)
 	/* Set PendSV priority to low-urgency (same as SysTick) */
 	NVIC_SetPriority(PendSV_IRQn, (1 << __NVIC_PRIO_BITS) - 1);
 
-	/* This should be at the end */
 	task_low_preemption_init();
 }
 

@@ -108,8 +108,11 @@ void task_init(struct scheduler *_scheduler, void *user_data)
 
 	task_current = task_main;
 
-	/* This should be at the end */
 	task_low_init();
+
+	/* Decide if preemption should be enabled for the main task */
+	if (scheduler->preempt(task_current))
+		task_low_preemption_enable();
 }
 
 void task_spawn_opt(task_t task, void *arg, struct task_opt *opt)
@@ -194,6 +197,12 @@ void task_switch(void)
 	assert(task_current->state == TASK_STATE_RUNNABLE);
 
 	task_current->state = TASK_STATE_RUNNING;
+
+	if (scheduler->preempt(task_current)) {
+		task_low_preemption_enable();
+	} else {
+		task_low_preemption_disable();
+	}
 
 	task_low_stack_restore(task_current);
 }

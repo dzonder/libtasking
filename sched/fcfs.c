@@ -48,8 +48,14 @@ static struct task_info * fcfs_dequeue(void)
 	return task_info;
 }
 
+static bool fcfs_preempt(struct task_info *task_info)
+{
+	return false;
+}
+
 struct scheduler fcfs_scheduler = {
 	.init		= fcfs_init,
 	.enqueue	= fcfs_enqueue,
 	.dequeue	= fcfs_dequeue,
+	.preempt	= fcfs_preempt,
 };

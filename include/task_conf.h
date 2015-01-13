@@ -1,10 +1,6 @@
 #ifndef _TASK_CONF_H_
 #define _TASK_CONF_H_
 
-#ifndef TASK_PREEMPTION
-#define TASK_PREEMPTION			0
-#endif
-
 #ifndef TASK_PREEMPTION_TIMESLICE_US
 #define TASK_PREEMPTION_TIMESLICE_US	(10 * 1000) /* 10 ms */
 #endif
@@ -14,7 +10,7 @@
 #endif
 
 #ifndef TASK_DEFAULT_PRIORITY
-#define TASK_DEFAULT_PRIORITY		10U
+#define TASK_DEFAULT_PRIORITY		0U
 #endif
 
 #ifndef TASK_DEFAULT_STACK_SIZE
