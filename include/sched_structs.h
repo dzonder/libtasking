@@ -6,10 +6,11 @@
 struct task_info;
 
 struct scheduler {
-	void (*init)(void *user_data);
-	void (*enqueue)(struct task_info *);
-	struct task_info * (*dequeue)(void);
-	bool (*preempt)(struct task_info *task_info);
+	void * (*init)(void *user_data);
+	void (*free)(void *desc);
+	void (*enqueue)(void *desc, struct task_info *);
+	struct task_info * (*dequeue)(void *desc);
+	bool (*preempt)(void *desc, struct task_info *task_info);
 };
 
 #endif /* _SCHED_STRUCTS_H_ */

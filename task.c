@@ -10,6 +10,7 @@ struct task_info *task_main;
 static struct task_info *task_current;
 
 static struct scheduler *scheduler = NULL;
+static void *scheduler_desc = NULL;
 
 static struct task_opt default_task_opt = {
 	.priority	= TASK_DEFAULT_PRIORITY,
@@ -55,7 +56,7 @@ static void task_scheduler_enqueue(struct task_info *task_info)
 	task_low_irq_disable();
 
 	assert(scheduler != NULL);
-	scheduler->enqueue(task_info);
+	scheduler->enqueue(scheduler_desc, task_info);
 
 	task_low_irq_enable();
 }
@@ -65,7 +66,7 @@ static struct task_info *task_scheduler_dequeue(void)
 	task_low_irq_disable();
 
 	assert(scheduler != NULL);
-	struct task_info *task_info = scheduler->dequeue();
+	struct task_info *task_info = scheduler->dequeue(scheduler_desc);
 
 	task_low_irq_enable();
 
@@ -89,11 +90,15 @@ void task_init(struct scheduler *_scheduler, void *user_data)
 
 	task_info_list_head_free = task_info_pool;
 
-	if (scheduler->init != NULL)
-		scheduler->init(user_data);
+	assert(scheduler->init != NULL);
 
+	scheduler_desc = scheduler->init(user_data);
+
+	/* All methods should be set now */
+	assert(scheduler->free != NULL);
 	assert(scheduler->dequeue != NULL);
 	assert(scheduler->enqueue != NULL);
+	assert(scheduler->preempt != NULL);
 
 	task_main = task_alloc_info();
 
@@ -111,7 +116,7 @@ void task_init(struct scheduler *_scheduler, void *user_data)
 	task_low_init();
 
 	/* Decide if preemption should be enabled for the main task */
-	if (scheduler->preempt(task_current))
+	if (scheduler->preempt(scheduler_desc, task_current))
 		task_low_preemption_enable();
 }
 
@@ -142,6 +147,15 @@ void task_spawn_opt(task_t task, void *arg, struct task_opt *opt)
 void task_spawn(task_t task, void *arg)
 {
 	task_spawn_opt(task, arg, &default_task_opt);
+}
+
+void task_spawn_prio(task_t task, void *arg, uint8_t priority)
+{
+	struct task_opt task_opt = default_task_opt;
+
+	task_opt.priority = priority;
+
+	task_spawn_opt(task, arg, &task_opt);
 }
 
 void task_yield(void)
@@ -198,7 +212,7 @@ void task_switch(void)
 
 	task_current->state = TASK_STATE_RUNNING;
 
-	if (scheduler->preempt(task_current)) {
+	if (scheduler->preempt(scheduler_desc, task_current)) {
 		task_low_preemption_enable();
 	} else {
 		task_low_preemption_disable();
@@ -236,6 +250,7 @@ void task_wait_queue_wait(struct wait_queue *wait_queue)
 	task_low_irq_disable();
 
 	assert(wait_queue != NULL);
+	assert(task_current != NULL);
 
 	task_current->state = TASK_STATE_WAITING;
 	task_current->list_next = NULL;

@@ -20,6 +20,9 @@ void task_init(struct scheduler *scheduler, void *user_data);
 /* Adds a task to the scheduler queue */
 void task_spawn(task_t task, void *arg);
 
+/* Adds a task to the scheduler queue with specified priority */
+void task_spawn_prio(task_t task, void *arg, uint8_t priority);
+
 /* Adds a task to the scheduler queue with specific options */
 void task_spawn_opt(task_t task, void *arg, struct task_opt *opt);
 
