@@ -15,7 +15,7 @@ struct task_opt {
 typedef void (*task_t)(void *arg);
 
 /* Should be executed before using any other task functions */
-void task_init(struct scheduler *scheduler);
+void task_init(struct scheduler *scheduler, void *user_data);
 
 /* Adds a task to the scheduler queue */
 void task_spawn(task_t task, void *arg);

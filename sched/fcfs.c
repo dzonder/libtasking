@@ -13,7 +13,7 @@
 static struct task_info *list_head_queued_tasks;
 static struct task_info *list_tail_queued_tasks;
 
-static void fcfs_init(void)
+static void fcfs_init(void *user_data)
 {
 	list_head_queued_tasks = NULL;
 	list_tail_queued_tasks = NULL;

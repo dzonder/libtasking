@@ -72,7 +72,7 @@ static struct task_info *task_scheduler_dequeue(void)
 	return task_info;
 }
 
-void task_init(struct scheduler *_scheduler)
+void task_init(struct scheduler *_scheduler, void *user_data)
 {
 	scheduler = _scheduler;
 
@@ -90,7 +90,7 @@ void task_init(struct scheduler *_scheduler)
 	task_info_list_head_free = task_info_pool;
 
 	if (scheduler->init != NULL)
-		scheduler->init();
+		scheduler->init(user_data);
 
 	assert(scheduler->dequeue != NULL);
 	assert(scheduler->enqueue != NULL);
