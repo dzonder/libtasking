@@ -5,28 +5,39 @@
 #include "sched_structs.h"
 #include "task_conf.h"
 
+#define TID_INVALID		(tid_t)(-1)
+
+/* TID type */
+typedef uint64_t tid_t;
+
+/* Task function signature */
+typedef void (*task_t)(void *arg);
+
 struct task_opt {
 	uint8_t priority;
 	uint32_t stack_size;
 	uint32_t *user_stack;
 };
 
-/* Task function signature */
-typedef void (*task_t)(void *arg);
-
 /* Should be executed before using any other task functions */
 void task_init(struct scheduler *scheduler, void *user_data);
 
 /* Adds a task to the scheduler queue */
-void task_spawn(task_t task, void *arg);
+tid_t task_spawn(task_t task, void *arg);
 
 /* Adds a task to the scheduler queue with specified priority */
-void task_spawn_prio(task_t task, void *arg, uint8_t priority);
+tid_t task_spawn_prio(task_t task, void *arg, uint8_t priority);
 
 /* Adds a task to the scheduler queue with specific options */
-void task_spawn_opt(task_t task, void *arg, struct task_opt *opt);
+tid_t task_spawn_opt(task_t task, void *arg, struct task_opt *opt);
 
-/* Running task can use yield to relinquish MCU */
+/* Checks if a specified task has already terminated */
+bool task_terminated(tid_t tid);
+
+/* Waits for a specified task to finish */
+void task_join(tid_t tid);
+
+/* Currently running task can use yield to relinquish MCU */
 void task_yield(void);
 
 /* Wait queues */

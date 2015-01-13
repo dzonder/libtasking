@@ -14,6 +14,9 @@ enum task_state {
 struct task_info {
 	enum task_state state;
 
+	tid_t tid;
+	struct wait_queue terminate_event;
+
 	/* Options set on spawning */
 	task_t task;
 	void *arg;

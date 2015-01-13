@@ -7,7 +7,7 @@ static struct task_info task_info_pool[TASK_MAX_TASKS];
 static struct task_info *task_info_list_head_free;
 
 struct task_info *task_main;
-static struct task_info *task_current;
+struct task_info *task_current;
 
 static struct scheduler *scheduler = NULL;
 static void *scheduler_desc = NULL;
@@ -17,6 +17,11 @@ static struct task_opt default_task_opt = {
 	.stack_size	= TASK_DEFAULT_STACK_SIZE,
 	.user_stack	= NULL,
 };
+
+static struct task_info *task_get_info(tid_t tid)
+{
+	return &task_info_pool[tid % TASK_MAX_TASKS];
+}
 
 static struct task_info *task_alloc_info(void)
 {
@@ -32,6 +37,11 @@ static struct task_info *task_alloc_info(void)
 	task_info->list_next = NULL;
 	task_info->state = TASK_STATE_RUNNABLE;
 
+	/* Allocate next TID incrementing by number of task_info
+	   structures available to easily get task_info from TID.
+	   Should never overflow. */
+	task_info->tid += TASK_MAX_TASKS;
+
 	task_low_irq_enable();
 
 	return task_info;
@@ -45,6 +55,8 @@ static void task_free_info(struct task_info *task_info)
 
 	task_info->state = TASK_STATE_UNUSED;
 	task_info->list_next = task_info_list_head_free;
+
+	//assert(task_info->terminate_event wait queue is empty);
 
 	task_info_list_head_free = task_info;
 
@@ -83,8 +95,12 @@ void task_init(struct scheduler *_scheduler, void *user_data)
 	for (uint16_t i = 0U; i < TASK_MAX_TASKS; ++i) {
 		struct task_info *task_info = task_info_pool + i;
 
-		task_info->state = TASK_STATE_UNUSED;
 		task_info->list_next = task_info + 1;
+		task_info->state = TASK_STATE_UNUSED;
+		task_info->tid = i;
+
+		/* Initialize terminate event wait queue just once */
+		task_wait_queue_init(&task_info->terminate_event);
 	}
 	task_info_pool[TASK_MAX_TASKS - 1].list_next = NULL;
 
@@ -120,7 +136,7 @@ void task_init(struct scheduler *_scheduler, void *user_data)
 		task_low_preemption_enable();
 }
 
-void task_spawn_opt(task_t task, void *arg, struct task_opt *opt)
+tid_t task_spawn_opt(task_t task, void *arg, struct task_opt *opt)
 {
 	struct task_info *task_info = task_alloc_info();
 
@@ -142,20 +158,22 @@ void task_spawn_opt(task_t task, void *arg, struct task_opt *opt)
 	task_low_stack_setup(task_info);
 
 	task_scheduler_enqueue(task_info);
+
+	return task_info->tid;
 }
 
-void task_spawn(task_t task, void *arg)
+tid_t task_spawn(task_t task, void *arg)
 {
-	task_spawn_opt(task, arg, &default_task_opt);
+	return task_spawn_opt(task, arg, &default_task_opt);
 }
 
-void task_spawn_prio(task_t task, void *arg, uint8_t priority)
+tid_t task_spawn_prio(task_t task, void *arg, uint8_t priority)
 {
 	struct task_opt task_opt = default_task_opt;
 
 	task_opt.priority = priority;
 
-	task_spawn_opt(task, arg, &task_opt);
+	return task_spawn_opt(task, arg, &task_opt);
 }
 
 void task_yield(void)
@@ -190,6 +208,8 @@ void task_switch(void)
 			free(task_current->stack);
 			task_low_irq_enable();
 		}
+
+		task_wait_queue_signal(&task_current->terminate_event);
 
 		task_free_info(task_current);
 		task_current = NULL;
@@ -235,6 +255,41 @@ void task_run(struct task_info *task_info)
 	task_yield();
 
 	for (;;); /* RIP - task shall be removed in 'task_switch' */
+}
+
+static inline bool task_terminated_low(struct task_info *task_info, tid_t tid)
+{
+	return task_info->state == TASK_STATE_UNUSED || task_info->tid != tid;
+}
+
+bool task_terminated(tid_t tid)
+{
+	task_low_irq_disable();
+
+	struct task_info *task_info = task_get_info(tid);
+
+	bool terminated = task_terminated_low(task_info, tid);
+
+	task_low_irq_enable();
+
+	return terminated;
+}
+
+void task_join(tid_t tid)
+{
+	task_low_irq_disable();
+
+	struct task_info *task_info = task_get_info(tid);
+
+	assert(task_info != task_current);
+
+	if (task_terminated_low(task_info, tid)) {
+		/* Task has already finished */
+		task_low_irq_enable();
+	} else {
+		/* Inherit disabled IRQs */
+		task_wait_queue_wait(&task_info->terminate_event);
+	}
 }
 
 void task_wait_queue_init(struct wait_queue *wait_queue)
