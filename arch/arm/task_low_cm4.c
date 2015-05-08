@@ -74,32 +74,17 @@ static void task_low_context_save_fp(bool fp_used)
 
 	task_low_get_psp(&stack);
 
-	// TODO: optimize this
+	void *stack_new = (void *)stack - sizeof(struct sw_fp_registers);
 
 	if (fp_used) {
 		__asm ("MOV r0, %0\n\t"
-			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s31\n\t" "STR r1, [r0]\n\t"
-			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s30\n\t" "STR r1, [r0]\n\t"
-			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s29\n\t" "STR r1, [r0]\n\t"
-			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s28\n\t" "STR r1, [r0]\n\t"
-			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s27\n\t" "STR r1, [r0]\n\t"
-			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s26\n\t" "STR r1, [r0]\n\t"
-			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s25\n\t" "STR r1, [r0]\n\t"
-			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s24\n\t" "STR r1, [r0]\n\t"
-			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s23\n\t" "STR r1, [r0]\n\t"
-			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s22\n\t" "STR r1, [r0]\n\t"
-			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s21\n\t" "STR r1, [r0]\n\t"
-			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s20\n\t" "STR r1, [r0]\n\t"
-			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s19\n\t" "STR r1, [r0]\n\t"
-			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s18\n\t" "STR r1, [r0]\n\t"
-			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s17\n\t" "STR r1, [r0]\n\t"
-			"SUB r0, r0, #4\n\t" "VMOV.F32 r1, s16\n\t" "STR r1, [r0]\n\t"
+			"VSTM r0, {s16-s31}\n\t"
 			:
-			: "r" (stack)
-			: "r0", "r1");
+			: "r" (stack_new)
+			: "r0");
 	}
 
-	task_low_set_psp((void *)stack - sizeof(struct sw_fp_registers));
+	task_low_set_psp(stack_new);
 #endif
 }
 
@@ -110,26 +95,9 @@ static void task_low_context_restore_fp(bool fp_used)
 
 	task_low_get_psp(&stack);
 
-	// TODO: optimize this
-
 	if (fp_used) {
 		__asm ("MOV r0, %0\n\t"
-			"LDR r1, [r0]\n\t" "VMOV.F32 s16, r1\n\t" "ADD r0, r0, #4\n\t"
-			"LDR r1, [r0]\n\t" "VMOV.F32 s17, r1\n\t" "ADD r0, r0, #4\n\t"
-			"LDR r1, [r0]\n\t" "VMOV.F32 s18, r1\n\t" "ADD r0, r0, #4\n\t"
-			"LDR r1, [r0]\n\t" "VMOV.F32 s19, r1\n\t" "ADD r0, r0, #4\n\t"
-			"LDR r1, [r0]\n\t" "VMOV.F32 s20, r1\n\t" "ADD r0, r0, #4\n\t"
-			"LDR r1, [r0]\n\t" "VMOV.F32 s21, r1\n\t" "ADD r0, r0, #4\n\t"
-			"LDR r1, [r0]\n\t" "VMOV.F32 s22, r1\n\t" "ADD r0, r0, #4\n\t"
-			"LDR r1, [r0]\n\t" "VMOV.F32 s23, r1\n\t" "ADD r0, r0, #4\n\t"
-			"LDR r1, [r0]\n\t" "VMOV.F32 s24, r1\n\t" "ADD r0, r0, #4\n\t"
-			"LDR r1, [r0]\n\t" "VMOV.F32 s25, r1\n\t" "ADD r0, r0, #4\n\t"
-			"LDR r1, [r0]\n\t" "VMOV.F32 s26, r1\n\t" "ADD r0, r0, #4\n\t"
-			"LDR r1, [r0]\n\t" "VMOV.F32 s27, r1\n\t" "ADD r0, r0, #4\n\t"
-			"LDR r1, [r0]\n\t" "VMOV.F32 s28, r1\n\t" "ADD r0, r0, #4\n\t"
-			"LDR r1, [r0]\n\t" "VMOV.F32 s29, r1\n\t" "ADD r0, r0, #4\n\t"
-			"LDR r1, [r0]\n\t" "VMOV.F32 s30, r1\n\t" "ADD r0, r0, #4\n\t"
-			"LDR r1, [r0]\n\t" "VMOV.F32 s31, r1\n\t" "ADD r0, r0, #4\n\t"
+			"VLDM r0, {s16-s31}\n\t"
 			:
 			: "r" (stack)
 			: "r0", "r1");
