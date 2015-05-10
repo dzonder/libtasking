@@ -139,8 +139,6 @@ static void task_low_preemption_init(void)
 
 	assert((ticks - 1) <= SysTick_LOAD_RELOAD_Msk);
 
-	NVIC_SetPriority (SysTick_IRQn, (1 << __NVIC_PRIO_BITS) - 1);
-
 	SysTick->LOAD = ticks - 1;
 	SysTick->VAL = 0;
 	SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_ENABLE_Msk;
@@ -175,7 +173,7 @@ void task_low_init(void)
 {
 	task_low_set_psp((uint32_t *)(&task_main_sw_stack_frame + 1));
 
-	/* Set PendSV priority to low-urgency (same as SysTick) */
+	/* Set PendSV priority to low-urgency */
 	NVIC_SetPriority(PendSV_IRQn, (1 << __NVIC_PRIO_BITS) - 1);
 
 	task_low_preemption_init();
@@ -249,4 +247,9 @@ void task_low_stack_restore(struct task_info *task_info)
 	task_low_set_psp(task_info->stack_top);
 
 	task_low_context_restore_fp(task_info->fp_used);
+}
+
+void SysTick_Handler(void)
+{
+	task_low_yield();
 }

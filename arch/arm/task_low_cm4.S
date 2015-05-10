@@ -3,14 +3,11 @@
 	.section .text
 
 	.global PendSV_Handler
-	.global SysTick_Handler
 
 	.thumb
 	.thumb_func
 	.type PendSV_Handler, %function
-	.type SysTick_Handler, %function
 PendSV_Handler:
-SysTick_Handler:
 	PUSH	{lr}
 
 	# First save where LR is into task_main->stack_top
