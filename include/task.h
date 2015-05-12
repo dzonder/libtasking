@@ -20,7 +20,7 @@ struct task_opt {
 };
 
 /* Should be executed before using any other task functions */
-void task_init(struct scheduler *scheduler, void *user_data);
+void task_init(struct scheduler *scheduler, void *scheduler_conf);
 
 /* Adds a task to the scheduler queue */
 tid_t task_spawn(task_t task, void *arg);

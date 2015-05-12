@@ -19,16 +19,16 @@ void multi_queue_conf_init(struct multi_queue_conf *multi_queue_conf, uint8_t ma
 	multi_queue_conf->scheduler_setups = calloc(max_priority + 1, sizeof(*multi_queue_conf->scheduler_setups));
 }
 
-static void * multi_queue_init(void *user_data)
+static void * multi_queue_init(void *conf)
 {
-	multi_queue_conf = (struct multi_queue_conf *)user_data;
+	multi_queue_conf = (struct multi_queue_conf *)conf;
 
 	assert(multi_queue_conf->scheduler_setups != NULL);
 
 	for (uint8_t prio = 0; prio <= multi_queue_conf->max_priority; ++prio) {
 		struct scheduler_setup *scheduler_setup = &multi_queue_conf->scheduler_setups[prio];
 		assert(scheduler_setup->scheduler != NULL);
-		scheduler_setup->desc = scheduler_setup->scheduler->init(scheduler_setup->user_data);
+		scheduler_setup->desc = scheduler_setup->scheduler->init(scheduler_setup->conf);
 	}
 
 	return NULL;

@@ -15,7 +15,7 @@ struct fcfs_desc {
 	struct task_info *list_tail_queued_tasks;
 };
 
-static void * fcfs_init(void *user_data)
+static void * fcfs_init(void *conf)
 {
 	struct fcfs_desc *desc = malloc(sizeof(*desc));
 	assert(desc != NULL);

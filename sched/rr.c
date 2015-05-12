@@ -6,7 +6,7 @@
 
 #include "sched/fcfs.h"
 
-static void * rr_init(void *user_data)
+static void * rr_init(void *conf)
 {
 	void *desc = fcfs_scheduler.init(NULL);
 

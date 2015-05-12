@@ -6,7 +6,7 @@
 struct scheduler_setup {
 	struct scheduler *scheduler;
 	void *desc;
-	void *user_data;
+	void *conf;
 };
 
 struct multi_queue_conf {

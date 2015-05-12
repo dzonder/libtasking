@@ -85,7 +85,7 @@ static struct task_info *task_scheduler_dequeue(void)
 	return task_info;
 }
 
-void task_init(struct scheduler *_scheduler, void *user_data)
+void task_init(struct scheduler *_scheduler, void *scheduler_conf)
 {
 	scheduler = _scheduler;
 
@@ -108,7 +108,7 @@ void task_init(struct scheduler *_scheduler, void *user_data)
 
 	assert(scheduler->init != NULL);
 
-	scheduler_desc = scheduler->init(user_data);
+	scheduler_desc = scheduler->init(scheduler_conf);
 
 	/* All methods should be set now */
 	assert(scheduler->free != NULL);

@@ -6,7 +6,7 @@
 struct task_info;
 
 struct scheduler {
-	void * (*init)(void *user_data);
+	void * (*init)(void *conf);
 	void (*free)(void *desc);
 	void (*enqueue)(void *desc, struct task_info *);
 	struct task_info * (*dequeue)(void *desc);
