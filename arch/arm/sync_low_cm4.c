@@ -15,12 +15,12 @@
 	return v;							\
 } while (0)
 
-uint32_t sync_low_atomic_inc(uint32_t *value)
+uint32_t sync_low_atomic_inc(volatile uint32_t *value)
 {
 	ATOMIC(++v);
 }
 
-uint32_t sync_low_atomic_dec(uint32_t *value)
+uint32_t sync_low_atomic_dec(volatile uint32_t *value)
 {
 	ATOMIC(--v);
 }

@@ -4,7 +4,7 @@
 #include "sync_low.h"
 
 struct semaphore {
-	int32_t value;
+	volatile int32_t value;
 	struct wait_queue wait_queue;
 };
 
@@ -33,14 +33,14 @@ void semaphore_free(struct semaphore *sem)
 
 void semaphore_wait(struct semaphore *sem)
 {
-	uint32_t value = sync_low_atomic_dec((uint32_t *)&sem->value);
+	uint32_t value = sync_low_atomic_dec((volatile uint32_t *)&sem->value);
 	if (*(int32_t *)&value < 0)
 		task_wait_queue_wait(&sem->wait_queue);
 }
 
 void semaphore_post(struct semaphore *sem)
 {
-	uint32_t value = sync_low_atomic_inc((uint32_t *)&sem->value);
+	uint32_t value = sync_low_atomic_inc((volatile uint32_t *)&sem->value);
 	if (*(int32_t *)&value <= 0)
 		task_wait_queue_signal(&sem->wait_queue);
 }
