@@ -37,6 +37,8 @@ static struct task_info *task_alloc_info(void)
 	task_info->list_next = NULL;
 	task_info->state = TASK_STATE_RUNNABLE;
 
+	task_wait_queue_init(&task_info->terminate_event);
+
 	/* Allocate next TID incrementing by number of task_info
 	   structures available to easily get task_info from TID.
 	   Should never overflow. */
@@ -98,9 +100,6 @@ void task_init(struct scheduler *_scheduler, void *scheduler_conf)
 		task_info->list_next = task_info + 1;
 		task_info->state = TASK_STATE_UNUSED;
 		task_info->tid = i;
-
-		/* Initialize terminate event wait queue just once */
-		task_wait_queue_init(&task_info->terminate_event);
 	}
 	task_info_pool[TASK_MAX_TASKS - 1].list_next = NULL;
 
@@ -296,6 +295,7 @@ void task_wait_queue_init(struct wait_queue *wait_queue)
 {
 	assert(wait_queue != NULL);
 
+	wait_queue->signals = 0;
 	wait_queue->list_head = NULL;
 	wait_queue->list_tail = NULL;
 }
@@ -303,6 +303,12 @@ void task_wait_queue_init(struct wait_queue *wait_queue)
 void task_wait_queue_wait(struct wait_queue *wait_queue)
 {
 	task_low_irq_disable();
+
+	if (wait_queue->signals > 0) {
+		--wait_queue->signals;
+		task_low_irq_enable();
+		return;
+	}
 
 	assert(wait_queue != NULL);
 	assert(task_current != NULL);
@@ -339,10 +345,10 @@ void task_wait_queue_signal(struct wait_queue *wait_queue)
 
 		waiting_task->state = TASK_STATE_RUNNABLE;
 		waiting_task->list_next = NULL;
+
+		task_scheduler_enqueue(waiting_task); /* Enables IRQ */
+	} else {
+		++wait_queue->signals;
+		task_low_irq_enable();
 	}
-
-	task_low_irq_enable();
-
-	if (waiting_task != NULL)
-		task_scheduler_enqueue(waiting_task);
 }

@@ -42,6 +42,7 @@ void task_yield(void);
 
 /* Wait queues */
 struct wait_queue {
+	uint32_t signals;
 	struct task_info *list_head;
 	struct task_info *list_tail;
 };
