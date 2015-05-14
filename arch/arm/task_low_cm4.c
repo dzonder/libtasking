@@ -184,6 +184,11 @@ void task_low_yield(void)
 	SCB->ICSR |= SCB_ICSR_PENDSVSET_Msk;
 }
 
+void task_low_pendsv_clear(void)
+{
+	SCB->ICSR |= SCB_ICSR_PENDSVCLR_Msk;
+}
+
 void task_low_stack_setup(struct task_info *task_info)
 {
 	assert(task_info != NULL);

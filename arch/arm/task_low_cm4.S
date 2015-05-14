@@ -14,6 +14,10 @@ PendSV_Handler:
 	MRS	r0, MSP
 	BL	task_low_exc_return_lr_addr_set
 
+	# Clear PendSV pending bit
+	# See http://embeddedgurus.com/state-space/2011/09/whats-the-state-of-your-cortex/
+	BL	task_low_pendsv_clear
+
 	# Now save the context (for regs that are software-saved) at PSP
 	MRS	r0, PSP
 	STMDB	r0!, {r4-r11}
