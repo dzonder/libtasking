@@ -325,7 +325,7 @@ void task_wait_queue_wait(struct wait_queue *wait_queue)
 
 	task_low_irq_enable();
 
-	task_yield();
+	task_low_yield();
 }
 
 void task_wait_queue_signal(struct wait_queue *wait_queue)
