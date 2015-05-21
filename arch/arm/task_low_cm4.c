@@ -166,7 +166,7 @@ void task_low_irq_disable(void)
 
 void task_low_enter_low_power_mode(void)
 {
-	__asm volatile ("wfi");
+	__asm volatile ("WFI\n\t");
 }
 
 void task_low_init(void)
