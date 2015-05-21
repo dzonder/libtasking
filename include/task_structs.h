@@ -18,8 +18,6 @@ struct task_info {
 	struct wait_queue terminate_event;
 
 	/* Options set on spawning */
-	task_t task;
-	void *arg;
 	struct task_opt opt;
 
 	uint32_t *stack;	/* This is stack limiting address.

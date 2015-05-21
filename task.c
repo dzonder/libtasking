@@ -117,9 +117,8 @@ void task_init(struct scheduler *_scheduler, void *scheduler_conf)
 
 	task_main = task_alloc_info();
 
-	task_main->task = NULL;
-	task_main->arg = NULL;
-
+	task_main->opt.task = NULL;
+	task_main->opt.arg = NULL;
 	task_main->opt.priority = TASK_DEFAULT_PRIORITY;
 	task_main->opt.stack_size = 0;
 	task_main->opt.user_stack = NULL;
@@ -135,12 +134,10 @@ void task_init(struct scheduler *_scheduler, void *scheduler_conf)
 		task_low_preemption_enable();
 }
 
-tid_t task_spawn_opt(task_t task, void *arg, struct task_opt *opt)
+tid_t task_spawn_opt(struct task_opt *opt)
 {
 	struct task_info *task_info = task_alloc_info();
 
-	task_info->task = task;
-	task_info->arg = arg;
 	task_info->opt = *opt;
 
 	if (task_info->opt.user_stack == NULL) {
@@ -163,16 +160,23 @@ tid_t task_spawn_opt(task_t task, void *arg, struct task_opt *opt)
 
 tid_t task_spawn(task_t task, void *arg)
 {
-	return task_spawn_opt(task, arg, &default_task_opt);
+	struct task_opt task_opt = default_task_opt;
+
+	task_opt.task = task;
+	task_opt.arg = arg;
+
+	return task_spawn_opt(&task_opt);
 }
 
 tid_t task_spawn_prio(task_t task, void *arg, uint8_t priority)
 {
 	struct task_opt task_opt = default_task_opt;
 
+	task_opt.task = task;
+	task_opt.arg = arg;
 	task_opt.priority = priority;
 
-	return task_spawn_opt(task, arg, &task_opt);
+	return task_spawn_opt(&task_opt);
 }
 
 void task_yield(void)
@@ -247,7 +251,7 @@ void task_run(struct task_info *task_info)
 	assert(task_info == task_current);
 
 	/* Execute task */
-	task_info->task(task_info->arg);
+	task_info->opt.task(task_info->opt.arg);
 
 	task_info->state = TASK_STATE_TERMINATED;
 
