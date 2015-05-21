@@ -20,6 +20,7 @@ struct task_opt {
 	uint8_t priority;
 	uint32_t stack_size;
 	uint32_t *user_stack;
+	bool privileged;
 };
 
 /* Should be executed before using any other task functions */

@@ -17,6 +17,7 @@ static struct task_opt default_task_opt = {
 	.priority	= TASK_DEFAULT_PRIORITY,
 	.stack_size	= TASK_DEFAULT_STACK_SIZE,
 	.user_stack	= NULL,
+	.privileged	= false,
 };
 
 static struct task_info *task_get_info(tid_t tid)
@@ -123,6 +124,7 @@ void task_init(struct scheduler *_scheduler, void *scheduler_conf)
 	task_main->opt.priority = TASK_DEFAULT_PRIORITY;
 	task_main->opt.stack_size = 0;
 	task_main->opt.user_stack = NULL;
+	task_main->opt.privileged = true;
 
 	task_main->state = TASK_STATE_RUNNING;
 
@@ -257,6 +259,7 @@ void task_switch(void)
 	}
 
 	task_low_stack_restore(task_current);
+	task_low_set_privilege_level(task_current);
 }
 
 void task_run(struct task_info *task_info)

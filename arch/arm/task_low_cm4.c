@@ -263,6 +263,17 @@ void task_low_stack_restore(struct task_info *task_info)
 	task_low_context_restore_fp(task_info->fp_used);
 }
 
+void task_low_set_privilege_level(struct task_info *task_info)
+{
+	CONTROL_Type control_reg;
+
+	__asm volatile ("MRS %0, control\n\t" : "=r" (control_reg));
+
+	control_reg.b.nPRIV = task_info->opt.privileged ? 0 : 1;
+
+	__asm volatile ("MSR control, %0\n\t" : : "r" (control_reg));
+}
+
 void task_low_svcall(svc_func_t svc_func, void *arg, void *res)
 {
 	__asm volatile ("SVC 0\n\t"
