@@ -1,7 +1,8 @@
 #include "task.h"
 
-#include "task_low.h"
 #include "task_structs.h"
+#include "task_svc.h"
+#include "task_low.h"
 
 static struct task_info task_info_pool[TASK_MAX_TASKS];
 static struct task_info *task_info_list_head_free;
@@ -134,11 +135,11 @@ void task_init(struct scheduler *_scheduler, void *scheduler_conf)
 		task_low_preemption_enable();
 }
 
-tid_t task_spawn_opt(struct task_opt *opt)
+void task_svc_spawn_opt(void *arg, void *res)
 {
 	struct task_info *task_info = task_alloc_info();
 
-	task_info->opt = *opt;
+	task_info->opt = *(struct task_opt *)arg;
 
 	if (task_info->opt.user_stack == NULL) {
 		/* User did not provide a stack */
@@ -155,7 +156,16 @@ tid_t task_spawn_opt(struct task_opt *opt)
 
 	task_scheduler_enqueue(task_info);
 
-	return task_info->tid;
+	*(tid_t *)res = task_info->tid;
+}
+
+tid_t task_spawn_opt(struct task_opt *opt)
+{
+	tid_t res;
+
+	task_low_svcall(task_svc_spawn_opt, opt, &res);
+
+	return res;
 }
 
 tid_t task_spawn(task_t task, void *arg)
@@ -179,9 +189,14 @@ tid_t task_spawn_prio(task_t task, void *arg, uint8_t priority)
 	return task_spawn_opt(&task_opt);
 }
 
-void task_yield(void)
+void task_svc_yield(void *arg, void *res)
 {
 	task_low_yield();
+}
+
+void task_yield(void)
+{
+	task_low_svcall(task_svc_yield, NULL, NULL);
 }
 
 void task_switch(void)
@@ -212,7 +227,7 @@ void task_switch(void)
 			task_low_irq_enable();
 		}
 
-		task_wait_queue_signal(&task_current->terminate_event);
+		task_svc_wait_queue_signal(&task_current->terminate_event, NULL);
 
 		task_free_info(task_current);
 		task_current = NULL;
@@ -265,8 +280,10 @@ static inline bool task_terminated_low(struct task_info *task_info, tid_t tid)
 	return task_info->state == TASK_STATE_UNUSED || task_info->tid != tid;
 }
 
-bool task_terminated(tid_t tid)
+void task_svc_terminated(void *arg, void *res)
 {
+	tid_t tid = *(tid_t *)arg;
+
 	task_low_irq_disable();
 
 	struct task_info *task_info = task_get_info(tid);
@@ -275,11 +292,22 @@ bool task_terminated(tid_t tid)
 
 	task_low_irq_enable();
 
+	*(bool *)res = terminated;
+}
+
+bool task_terminated(tid_t tid)
+{
+	bool terminated;
+
+	task_low_svcall(task_svc_terminated, &tid, &terminated);
+
 	return terminated;
 }
 
-void task_join(tid_t tid)
+void task_svc_join(void *arg, void *res)
 {
+	tid_t tid = *(tid_t *)arg;
+
 	task_low_irq_disable();
 
 	struct task_info *task_info = task_get_info(tid);
@@ -291,8 +319,13 @@ void task_join(tid_t tid)
 		task_low_irq_enable();
 	} else {
 		/* Inherit disabled IRQs */
-		task_wait_queue_wait(&task_info->terminate_event);
+		task_svc_wait_queue_wait(&task_info->terminate_event, NULL);
 	}
+}
+
+void task_join(tid_t tid)
+{
+	task_low_svcall(task_svc_join, &tid, NULL);
 }
 
 void task_wait_queue_init(struct wait_queue *wait_queue)
@@ -304,8 +337,10 @@ void task_wait_queue_init(struct wait_queue *wait_queue)
 	wait_queue->list_tail = NULL;
 }
 
-void task_wait_queue_wait(struct wait_queue *wait_queue)
+void task_svc_wait_queue_wait(void *arg, void *res)
 {
+	struct wait_queue *wait_queue = (struct wait_queue *)arg;
+
 	task_low_irq_disable();
 
 	if (wait_queue->signals > 0) {
@@ -332,8 +367,15 @@ void task_wait_queue_wait(struct wait_queue *wait_queue)
 	task_low_yield();
 }
 
-void task_wait_queue_signal(struct wait_queue *wait_queue)
+void task_wait_queue_wait(struct wait_queue *wait_queue)
 {
+	task_low_svcall(task_svc_wait_queue_wait, wait_queue, NULL);
+}
+
+void task_svc_wait_queue_signal(void *arg, void *res)
+{
+	struct wait_queue *wait_queue = (struct wait_queue *)arg;
+
 	task_low_irq_disable();
 
 	assert(wait_queue != NULL);
@@ -355,4 +397,9 @@ void task_wait_queue_signal(struct wait_queue *wait_queue)
 		++wait_queue->signals;
 		task_low_irq_enable();
 	}
+}
+
+void task_wait_queue_signal(struct wait_queue *wait_queue)
+{
+	task_low_svcall(task_svc_wait_queue_signal, wait_queue, NULL);
 }

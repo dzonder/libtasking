@@ -2,6 +2,7 @@
 
 	.section .text
 
+
 	.global PendSV_Handler
 
 	.thumb
@@ -32,4 +33,25 @@ PendSV_Handler:
 	MSR	PSP, r0
 
 	# Exit exception handler
+	POP	{pc}
+
+
+	.global SVC_Handler
+
+	.thumb
+	.thumb_func
+	.type SVC_Handler, %function
+SVC_Handler:
+	PUSH	{lr}
+
+	# Save service function pointer
+	MOV	r3, r0
+
+	# Prepare service function arguments
+	MOV	r0, r1
+	MOV	r1, r2
+
+	# Call service function
+	BLX	r3
+
 	POP	{pc}
