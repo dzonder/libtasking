@@ -145,9 +145,7 @@ void task_svc_spawn_opt(void *arg, void *res)
 
 	if (task_info->opt.user_stack == NULL) {
 		/* User did not provide a stack */
-		task_low_irq_disable();
 		task_info->stack = malloc(task_info->opt.stack_size);
-		task_low_irq_enable();
 	} else {
 		task_info->stack = task_info->opt.user_stack;
 	}
@@ -222,14 +220,16 @@ void task_switch(void)
 		/* Main task should never have a terminated state */
 		assert(task_current != task_main);
 
+		task_low_irq_disable();
+
 		/* User did not supply stack - it was malloced - lets free it */
 		if (task_current->opt.user_stack == NULL) {
-			task_low_irq_disable();
 			free(task_current->stack);
-			task_low_irq_enable();
 		}
 
 		task_svc_wait_queue_signal(&task_current->terminate_event, NULL);
+
+		task_low_irq_enable();
 
 		task_free_info(task_current);
 		task_current = NULL;
@@ -268,6 +268,8 @@ void task_run(struct task_info *task_info)
 	assert(task_info->state == TASK_STATE_RUNNING);
 	assert(task_info == task_current);
 
+	// TODO create a svcall to terminate task (unprivileged code should not access task_info structures directly)
+
 	/* Execute task */
 	task_info->opt.task(task_info->opt.arg);
 
@@ -287,13 +289,9 @@ void task_svc_terminated(void *arg, void *res)
 {
 	tid_t tid = *(tid_t *)arg;
 
-	task_low_irq_disable();
-
 	struct task_info *task_info = task_get_info(tid);
 
 	bool terminated = task_terminated_low(task_info, tid);
-
-	task_low_irq_enable();
 
 	*(bool *)res = terminated;
 }
@@ -311,19 +309,12 @@ void task_svc_join(void *arg, void *res)
 {
 	tid_t tid = *(tid_t *)arg;
 
-	task_low_irq_disable();
-
 	struct task_info *task_info = task_get_info(tid);
 
 	assert(task_info != task_current);
 
-	if (task_terminated_low(task_info, tid)) {
-		/* Task has already finished */
-		task_low_irq_enable();
-	} else {
-		/* Inherit disabled IRQs */
+	if (!task_terminated_low(task_info, tid))
 		task_svc_wait_queue_wait(&task_info->terminate_event, NULL);
-	}
 }
 
 void task_join(tid_t tid)
@@ -344,11 +335,8 @@ void task_svc_wait_queue_wait(void *arg, void *res)
 {
 	struct wait_queue *wait_queue = (struct wait_queue *)arg;
 
-	task_low_irq_disable();
-
 	if (wait_queue->signals > 0) {
 		--wait_queue->signals;
-		task_low_irq_enable();
 		return;
 	}
 
@@ -365,8 +353,6 @@ void task_svc_wait_queue_wait(void *arg, void *res)
 	}
 	wait_queue->list_tail = task_current;
 
-	task_low_irq_enable();
-
 	task_low_yield();
 }
 
@@ -378,8 +364,6 @@ void task_wait_queue_wait(struct wait_queue *wait_queue)
 void task_svc_wait_queue_signal(void *arg, void *res)
 {
 	struct wait_queue *wait_queue = (struct wait_queue *)arg;
-
-	task_low_irq_disable();
 
 	assert(wait_queue != NULL);
 
@@ -395,10 +379,9 @@ void task_svc_wait_queue_signal(void *arg, void *res)
 		waiting_task->state = TASK_STATE_RUNNABLE;
 		waiting_task->list_next = NULL;
 
-		task_scheduler_enqueue(waiting_task); /* Enables IRQ */
+		task_scheduler_enqueue(waiting_task);
 	} else {
 		++wait_queue->signals;
-		task_low_irq_enable();
 	}
 }
 
