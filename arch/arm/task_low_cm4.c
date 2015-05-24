@@ -39,11 +39,11 @@ SOFTWARE.
 #define IS_MAIN_TASK(task)	((task) == task_main)
 
 struct sw_fp_registers {
-	uint32_t s16_r31[16];
+	uint32_t s16_s31[16];
 };
 
 struct hw_fp_registers {
-	uint32_t s0_r15[16];
+	uint32_t s0_s15[16];
 	uint32_t fpscr;
 };
 

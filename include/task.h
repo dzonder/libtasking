@@ -29,11 +29,23 @@ SOFTWARE.
 
 #define TID_INVALID		(tid_t)(-1)
 
-/* TID type */
+/* Task ID type */
 typedef uint64_t tid_t;
 
 /* Task function signature */
 typedef void (*task_t)(void *arg);
+
+/* Task module initialization. Should be executed once before using
+   any other functions from the library. The 'scheduler_conf' argument
+   is passed to the scheduler during its initialization and can contain
+   scheduler's configuration. */
+void task_init(struct scheduler *scheduler, void *scheduler_conf);
+
+/* Adds a task to the scheduler queue */
+tid_t task_spawn(task_t task, void *arg);
+
+/* Adds a task to the scheduler queue with specified priority */
+tid_t task_spawn_prio(task_t task, void *arg, uint8_t priority);
 
 /* Task spawning options */
 struct task_opt {
@@ -45,22 +57,14 @@ struct task_opt {
 	bool privileged;
 };
 
-/* Should be executed before using any other task functions */
-void task_init(struct scheduler *scheduler, void *scheduler_conf);
-
-/* Adds a task to the scheduler queue */
-tid_t task_spawn(task_t task, void *arg);
-
-/* Adds a task to the scheduler queue with specified priority */
-tid_t task_spawn_prio(task_t task, void *arg, uint8_t priority);
-
 /* Adds a task to the scheduler queue with specific options */
 tid_t task_spawn_opt(struct task_opt *opt);
 
 /* Checks if a specified task has already terminated */
 bool task_terminated(tid_t tid);
 
-/* Waits for a specified task to finish */
+/* Waits for a specified task to finish.
+   Only one task can join other task. */
 void task_join(tid_t tid);
 
 /* Currently running task can use yield to relinquish MCU */
