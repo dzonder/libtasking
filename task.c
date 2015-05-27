@@ -42,6 +42,9 @@ static struct task_opt default_task_opt = {
 	.privileged	= false,
 };
 
+static void task_svc_wait_queue_wait(void *arg, void *res);
+static void task_svc_wait_queue_signal(void *arg, void *res);
+
 static struct task_info *task_get_info(tid_t tid)
 {
 	return &task_info_pool[tid % TASK_MAX_TASKS];
@@ -159,7 +162,7 @@ void task_init(struct scheduler *_scheduler, void *scheduler_conf)
 		task_low_preemption_enable();
 }
 
-void task_svc_spawn_opt(void *arg, void *res)
+static void task_svc_spawn_opt(void *arg, void *res)
 {
 	struct task_info *task_info = task_alloc_info();
 
@@ -185,7 +188,7 @@ tid_t task_spawn_opt(struct task_opt *opt)
 {
 	tid_t res;
 
-	task_low_svcall(task_svc_spawn_opt, opt, &res);
+	task_low_svcall(TASK_SVC_SPAWN_OPT, opt, &res);
 
 	return res;
 }
@@ -211,14 +214,14 @@ tid_t task_spawn_prio(task_t task, void *arg, uint8_t priority)
 	return task_spawn_opt(&task_opt);
 }
 
-void task_svc_yield(void *arg, void *res)
+static void task_svc_yield(void *arg, void *res)
 {
 	task_low_yield();
 }
 
 void task_yield(void)
 {
-	task_low_svcall(task_svc_yield, NULL, NULL);
+	task_low_svcall(TASK_SVC_YIELD, NULL, NULL);
 }
 
 void task_switch(void)
@@ -307,7 +310,7 @@ static inline bool task_terminated_low(struct task_info *task_info, tid_t tid)
 	return task_info->state == TASK_STATE_UNUSED || task_info->tid != tid;
 }
 
-void task_svc_terminated(void *arg, void *res)
+static void task_svc_terminated(void *arg, void *res)
 {
 	tid_t tid = *(tid_t *)arg;
 
@@ -322,12 +325,12 @@ bool task_terminated(tid_t tid)
 {
 	bool terminated;
 
-	task_low_svcall(task_svc_terminated, &tid, &terminated);
+	task_low_svcall(TASK_SVC_TERMINATED, &tid, &terminated);
 
 	return terminated;
 }
 
-void task_svc_join(void *arg, void *res)
+static void task_svc_join(void *arg, void *res)
 {
 	tid_t tid = *(tid_t *)arg;
 
@@ -341,7 +344,7 @@ void task_svc_join(void *arg, void *res)
 
 void task_join(tid_t tid)
 {
-	task_low_svcall(task_svc_join, &tid, NULL);
+	task_low_svcall(TASK_SVC_JOIN, &tid, NULL);
 }
 
 void task_wait_queue_init(struct wait_queue *wait_queue)
@@ -353,7 +356,7 @@ void task_wait_queue_init(struct wait_queue *wait_queue)
 	wait_queue->list_tail = NULL;
 }
 
-void task_svc_wait_queue_wait(void *arg, void *res)
+static void task_svc_wait_queue_wait(void *arg, void *res)
 {
 	struct wait_queue *wait_queue = (struct wait_queue *)arg;
 
@@ -380,10 +383,10 @@ void task_svc_wait_queue_wait(void *arg, void *res)
 
 void task_wait_queue_wait(struct wait_queue *wait_queue)
 {
-	task_low_svcall(task_svc_wait_queue_wait, wait_queue, NULL);
+	task_low_svcall(TASK_SVC_WAIT_QUEUE_WAIT, wait_queue, NULL);
 }
 
-void task_svc_wait_queue_signal(void *arg, void *res)
+static void task_svc_wait_queue_signal(void *arg, void *res)
 {
 	struct wait_queue *wait_queue = (struct wait_queue *)arg;
 
@@ -409,5 +412,14 @@ void task_svc_wait_queue_signal(void *arg, void *res)
 
 void task_wait_queue_signal(struct wait_queue *wait_queue)
 {
-	task_low_svcall(task_svc_wait_queue_signal, wait_queue, NULL);
+	task_low_svcall(TASK_SVC_WAIT_QUEUE_SIGNAL, wait_queue, NULL);
 }
+
+svc_func_t svc_func_ptrs[] = {
+	task_svc_spawn_opt,
+	task_svc_yield,
+	task_svc_terminated,
+	task_svc_join,
+	task_svc_wait_queue_wait,
+	task_svc_wait_queue_signal,
+};

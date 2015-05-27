@@ -23,11 +23,16 @@ SOFTWARE.
 #ifndef _TASK_SVC_H_
 #define _TASK_SVC_H_
 
-void task_svc_spawn_opt(void *arg, void *res);
-void task_svc_yield(void *arg, void *res);
-void task_svc_terminated(void *arg, void *res);
-void task_svc_join(void *arg, void *res);
-void task_svc_wait_queue_wait(void *arg, void *res);
-void task_svc_wait_queue_signal(void *arg, void *res);
+#define TASK_SVC_SPAWN_OPT		0
+#define TASK_SVC_YIELD			1
+#define TASK_SVC_TERMINATED		2
+#define TASK_SVC_JOIN			3
+#define TASK_SVC_WAIT_QUEUE_WAIT	4
+#define TASK_SVC_WAIT_QUEUE_SIGNAL	5
+#define TASK_SVC_UNDEFINED		6
+
+typedef void (*svc_func_t)(void *arg, void *res);
+
+extern svc_func_t svc_func_ptrs[];
 
 #endif /* _TASK_SVC_H_ */

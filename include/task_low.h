@@ -25,8 +25,6 @@ SOFTWARE.
 
 #include "arch.h"
 
-typedef void (*svc_func_t)(void *arg, void *res);
-
 struct task_info;
 
 void task_low_init(void);
@@ -47,6 +45,6 @@ void task_low_stack_restore(struct task_info *task_info);
 
 void task_low_set_privilege_level(struct task_info *task_info);
 
-void task_low_svcall(svc_func_t svc_func, void *arg, void *res);
+void task_low_svcall(uint8_t svc_func_num, void *arg, void *res);
 
 #endif /* _TASK_LOW_H_ */

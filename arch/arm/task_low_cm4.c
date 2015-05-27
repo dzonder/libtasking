@@ -23,6 +23,7 @@ SOFTWARE.
 #include "task_low.h"
 
 #include "task_structs.h"
+#include "task_svc.h"
 
 #if (__FPU_PRESENT == 1)
 #include "ARMCM4_FP.h"
@@ -296,10 +297,19 @@ void task_low_set_privilege_level(struct task_info *task_info)
 	__asm volatile ("MSR control, %0\n\t" : : "r" (control_reg));
 }
 
-void task_low_svcall(svc_func_t svc_func, void *arg, void *res)
+void task_low_svcall(uint8_t svc_func_num, void *arg, void *res)
 {
 	__asm volatile ("SVC 0\n\t"
 			"ISB\n\t");
+}
+
+void SVC_Handler(uint8_t svc_func_num, void *arg, void *res)
+{
+	// TODO: notify about undefined service call handler
+	if (svc_func_num >= TASK_SVC_UNDEFINED)
+		assert(false);
+
+	svc_func_ptrs[svc_func_num](arg, res);
 }
 
 void SysTick_Handler(void)

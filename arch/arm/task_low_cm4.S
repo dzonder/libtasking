@@ -57,30 +57,3 @@ PendSV_Handler:
 
 	# Exit exception handler with EXC_RETURN value from the MSP stack
 	POP	{pc}
-
-
-	.global SVC_Handler
-
-	.thumb
-	.thumb_func
-	.type SVC_Handler, %function
-	# Register values at entry:
-	# r0 - service function pointer
-	# r1 - 'arg' argument
-	# r2 - 'res' argument
-SVC_Handler:
-	# Store EXC_RETURN value on the MSP stack
-	PUSH	{lr}
-
-	# Save service function pointer
-	MOV	r3, r0
-
-	# Prepare service function arguments
-	MOV	r0, r1
-	MOV	r1, r2
-
-	# Call service function
-	BLX	r3
-
-	# Exit exception handler with EXC_RETURN value from the MSP stack
-	POP	{pc}
